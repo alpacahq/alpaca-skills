@@ -18,12 +18,6 @@ pip install TA-Lib
 python -c "import talib; print(talib.__version__)"
 ```
 
-Add to `requirements.txt`:
-
-```text
-TA-Lib>=0.4.28
-```
-
 If the C library is unavailable in the target environment, prompt the user and ask how to proceed.
 
 ## Input format
