@@ -1,6 +1,6 @@
 # Alpaca Skills
 
-Open agent skills for Alpaca's Trading API and Broker API. Each skill is a `SKILL.md` file with step-by-step instructions your AI coding assistant follows when you ask it to complete a task — such as running a historical backtest or fetching market data through the Alpaca CLI.
+Open agent skills for Alpaca's Trading API and Broker API. Each skill is a `SKILL.md` file with step-by-step instructions your AI coding assistant follows when you ask it to complete a task, such as running a historical backtest, onboarding Broker API accounts, moving money, placing orders, or consuming real-time events.
 
 Skills provide shared instructions, guardrails, and reporting standards so agents produce more consistent results across runs.
 
@@ -14,7 +14,7 @@ Skills provide shared instructions, guardrails, and reporting standards so agent
   go install github.com/alpacahq/cli/cmd/alpaca@latest
   ```
 
-- **Alpaca API credentials** — paper or live keys for the CLI. Run `alpaca profile login` or set `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`.
+- **Alpaca API credentials** — paper, sandbox, or live keys as appropriate for the skill. Run `alpaca profile login` for CLI-backed workflows, or set `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` when using API examples.
 
 ## Install
 
@@ -23,9 +23,20 @@ Skills provide shared instructions, guardrails, and reporting standards so agent
 Use the Skills CLI to install from this GitHub repository:
 
 ```bash
+# Interactive install: choose skills and agents in the CLI
+npx skills add alpacahq/alpaca-skills
+
+# Preview available skills without installing
 npx skills add alpacahq/alpaca-skills --list
+
+# Install one specific skill
 npx skills add alpacahq/alpaca-skills --skill alpaca-trading-backtest
+
+# Install all skills non-interactively
+npx skills add alpacahq/alpaca-skills --skill '*'
 ```
+
+Swap in any skill name from the table below.
 
 Agent-specific global installs:
 
@@ -55,7 +66,7 @@ For agents that do not support the Skills CLI, point your agent at a skill direc
 
 | Agent | Typical path |
 | --- | --- |
-| **Cursor** | Copy or symlink `skills/trading-api/backtest/` into `.cursor/skills/` (project) or your user skills directory |
+| **Cursor** | Copy or symlink a skill directory into `.cursor/skills/` (project) or your user skills directory |
 | **Claude Code** | Copy into `~/.claude/skills/` |
 | **Other** | Reference the `SKILL.md` path directly in your agent prompt |
 
@@ -68,16 +79,27 @@ cp -r path/to/alpaca-skills/skills/trading-api/backtest .cursor/skills/alpaca-tr
 
 ## Available skills
 
-| Name | Path | Title |
-| --- | --- | --- |
-| `alpaca-trading-backtest` | [skills/trading-api/backtest/](skills/trading-api/backtest/) | Trading API Backtesting |
+| Name | Path | Title | Product |
+| --- | --- | --- | --- |
+| `alpaca-trading-backtest` | [skills/trading-api/backtest/](skills/trading-api/backtest/) | Trading API Backtesting | Trading API |
+| `alpaca-broker-integration` | [skills/broker-api/integration/](skills/broker-api/integration/) | Broker API Integration | Broker API |
+| `alpaca-broker-account-onboarding` | [skills/broker-api/account-onboarding/](skills/broker-api/account-onboarding/) | Account Onboarding & KYC | Broker API |
+| `alpaca-broker-funding-transfers` | [skills/broker-api/funding-transfers/](skills/broker-api/funding-transfers/) | Funding & Transfers | Broker API |
+| `alpaca-broker-journals` | [skills/broker-api/journals/](skills/broker-api/journals/) | Journals | Broker API |
+| `alpaca-broker-trading-orders` | [skills/broker-api/trading-orders/](skills/broker-api/trading-orders/) | Trading on Behalf of Accounts | Broker API |
+| `alpaca-broker-market-data` | [skills/broker-api/market-data/](skills/broker-api/market-data/) | Market Data | Broker API |
+| `alpaca-broker-sse-events` | [skills/broker-api/sse-events/](skills/broker-api/sse-events/) | Broker SSE Events | Broker API |
+| `alpaca-broker-reconciliation-idempotency` | [skills/broker-api/reconciliation-idempotency/](skills/broker-api/reconciliation-idempotency/) | Reconciliation & Idempotency | Broker API |
+| `alpaca-broker-rate-limits-resilience` | [skills/broker-api/rate-limits-resilience/](skills/broker-api/rate-limits-resilience/) | Rate Limits & Resilience | Broker API |
+| `alpaca-broker-money-precision` | [skills/broker-api/money-precision/](skills/broker-api/money-precision/) | Money & Numeric Precision | Broker API |
 
-Product namespacing uses the folder path (`skills/trading-api/`, `skills/broker-api/`) and the skill `name` field: `alpaca-<product-scope>-<skill-name>` (e.g. `alpaca-trading-backtest`). Use `trading` or `broker` as the product scope — not `api`.
+Product namespacing uses the folder path (`skills/trading-api/`, `skills/broker-api/`) and the skill `name` field: `alpaca-<product-scope>-<skill-name>` (e.g. `alpaca-trading-backtest`, `alpaca-broker-integration`). Use `trading` or `broker` as the product scope — not `api`.
 
 ## Related resources
 
 - [Alpaca CLI](https://github.com/alpacahq/cli)
 - [Trading API documentation](https://docs.alpaca.markets/)
+- [Broker API documentation](https://docs.alpaca.markets/docs/getting-started-with-broker-api)
 - [Alpaca disclosures](https://alpaca.markets/disclosures)
 - [Security policy](SECURITY.md)
 
