@@ -23,42 +23,17 @@ Skills provide shared instructions, guardrails, and reporting standards so agent
 Use the Skills CLI to install from this GitHub repository:
 
 ```bash
-# Interactive install: choose skills and agents in the CLI
+# Interactive install
 npx skills add alpacahq/alpaca-skills
 
-# Preview available skills without installing
+# Preview available skills
 npx skills add alpacahq/alpaca-skills --list
 
 # Install one specific skill
 npx skills add alpacahq/alpaca-skills --skill alpaca-trading-backtest
-
-# Install all skills non-interactively
-npx skills add alpacahq/alpaca-skills --skill '*'
 ```
 
 Swap in any skill name from the table below.
-
-Agent-specific global installs:
-
-```bash
-# Cursor
-npx skills add alpacahq/alpaca-skills --skill alpaca-trading-backtest -g -a cursor -y
-
-# Claude Code
-npx skills add alpacahq/alpaca-skills --skill alpaca-trading-backtest -g -a claude-code -y
-
-# Codex
-npx skills add alpacahq/alpaca-skills --skill alpaca-trading-backtest -g -a codex -y
-```
-
-For Claude Code, keep `-a claude-code` in the command. Without an explicit agent target, `npx skills` can install into `.agents/skills/`, which Claude Code does not load directly unless `.claude/` already exists and receives a symlink.
-
-For local development from a checkout:
-
-```bash
-npx skills add . --list
-npx skills add . --skill alpaca-trading-backtest
-```
 
 ### Manual install
 
