@@ -57,6 +57,7 @@ cp -r path/to/alpaca-skills/skills/trading-api/backtest .cursor/skills/alpaca-tr
 | Name | Path | Title | Product |
 | --- | --- | --- | --- |
 | `alpaca-trading-backtest` | [skills/trading-api/backtest/](skills/trading-api/backtest/) | Trading API Backtesting | Trading API |
+| `alpaca-trading-decision-audit` | [skills/trading-api/decision-audit/](skills/trading-api/decision-audit/) | Decision Audit Trail | Trading API |
 | `alpaca-broker-integration` | [skills/broker-api/integration/](skills/broker-api/integration/) | Broker API Integration | Broker API |
 | `alpaca-broker-account-onboarding` | [skills/broker-api/account-onboarding/](skills/broker-api/account-onboarding/) | Account Onboarding & KYC | Broker API |
 | `alpaca-broker-funding-transfers` | [skills/broker-api/funding-transfers/](skills/broker-api/funding-transfers/) | Funding & Transfers | Broker API |
