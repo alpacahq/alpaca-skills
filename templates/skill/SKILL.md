@@ -20,12 +20,8 @@ List required tools, authentication, and permissions.
 
 ## Output contract
 
-Summarize expected artifacts. Defer schemas and formulas to `reference.md`.
+Summarize expected artifacts, schemas, and formulas here when needed.
 
 ## Guardrails
 
 List anti-patterns and safety rules.
-
-## Related files
-
-- [reference.md](reference.md)
