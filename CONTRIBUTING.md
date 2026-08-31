@@ -23,10 +23,11 @@ For security issues, see [SECURITY.md](SECURITY.md). This project is licensed un
 Every skill must include:
 
 - `SKILL.md` with `name` and `description` frontmatter
-- `reference.md` companion for schemas, formulas, or CLI detail
 - Prerequisites and authentication guidance (no hardcoded secrets)
 - Disclosure language for trading-related outputs
 - A clear workflow the agent can follow step by step
+
+Skills may include focused supporting files under `references/` for substantial schemas, formulas, CLI detail, or other material that does not belong in the main workflow. Use descriptive filenames and link each file from `SKILL.md` where the agent needs it.
 
 ## Review criteria
 

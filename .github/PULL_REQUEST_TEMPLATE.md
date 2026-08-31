@@ -12,7 +12,7 @@
 - [ ] Skill lives under `skills/trading-api/` or `skills/broker-api/`
 - [ ] Skill `name` follows `alpaca-<product-scope>-<skill-name>` (`trading` or `broker`)
 - [ ] `SKILL.md` has `name` + `description` frontmatter
-- [ ] `reference.md` exists alongside `SKILL.md`
+- [ ] Supporting files are focused, descriptively named, and linked from `SKILL.md` (if applicable)
 - [ ] No API keys or secrets committed
 - [ ] Disclosure language included for trading-related outputs (if applicable)
 - [ ] Updated [README.md](../README.md) skills table (if adding or renaming a skill)

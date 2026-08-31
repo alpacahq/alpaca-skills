@@ -20,7 +20,7 @@ List required tools, authentication, and permissions.
 
 ## Output contract
 
-Summarize expected artifacts. Defer schemas and formulas to `reference.md`.
+Summarize expected artifacts. Put substantial schemas or formulas in focused files under `references/` when needed.
 
 ## Guardrails
 
@@ -28,4 +28,4 @@ List anti-patterns and safety rules.
 
 ## Related files
 
-- [reference.md](reference.md)
+List optional supporting files and when the agent should read each one.

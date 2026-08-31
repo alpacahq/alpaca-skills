@@ -124,16 +124,6 @@ def validate_name(skill_md: Path, name: str) -> None:
         )
 
 
-def validate_reference(skill_md: Path) -> None:
-    reference = skill_md.parent / "reference.md"
-    if not reference.is_file():
-        raise ValidationError(
-            "reference-missing",
-            skill_md,
-            "reference.md must exist alongside SKILL.md",
-        )
-
-
 def is_placeholder_context(text: str, match_start: int) -> bool:
     window_start = max(0, match_start - 80)
     window_end = min(len(text), match_start + 80)
@@ -182,7 +172,6 @@ def validate_skills() -> list[str]:
             validate_skill_layout(skill_md)
             fields = validate_frontmatter(skill_md)
             validate_name(skill_md, fields["name"])
-            validate_reference(skill_md)
         except ValidationError as exc:
             errors.append(str(exc))
 

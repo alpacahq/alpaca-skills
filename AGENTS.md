@@ -8,7 +8,7 @@ Conventions for authoring and maintaining skills in this repository.
 | --- | --- |
 | `skills/trading-api/` | Trading API agent skills |
 | `skills/broker-api/` | Broker API agent skills |
-| `templates/skill/` | Contributor scaffold (`SKILL.md` + `reference.md`) |
+| `templates/skill/` | Contributor scaffold (`SKILL.md`) |
 
 ## Skill structure
 
@@ -18,8 +18,9 @@ Conventions for authoring and maintaining skills in this repository.
 | Frontmatter | Required fields: `name`, `description` only |
 | Skill `name` | `alpaca-<product-scope>-<skill-name>` (e.g. `alpaca-trading-backtest`). `<product-scope>` is `trading` or `broker` — do not include `api` in the name |
 | Folder path | Use `skills/trading-api/` or `skills/broker-api/` for product grouping |
-| File pairing | Every skill has `SKILL.md` (workflow) + `reference.md` (schemas, formulas, CLI detail) |
-| Cross-refs | Use relative paths (`reference.md`), not absolute install paths |
+| Required file | Every skill has `SKILL.md` for its workflow and guardrails |
+| Optional resources | Put substantial schemas, formulas, CLI detail, or other supporting material in focused, descriptively named files under `references/` |
+| Cross-refs | Link supporting files from `SKILL.md` using paths relative to the skill root |
 | Secrets | Never commit API keys; prefer env vars (`ALPACA_API_KEY`, `ALPACA_SECRET_KEY`) |
 | Disclosures | Trading skills must include disclosure language in outputs |
 
@@ -27,7 +28,7 @@ Conventions for authoring and maintaining skills in this repository.
 
 1. Copy `templates/skill/` into the appropriate product folder.
 2. Set `name` to `alpaca-<product-scope>-<skill-name>` (unique within that product folder).
-3. Write workflow and guardrails in `SKILL.md`; put formulas, schemas, and CLI reference in `reference.md`.
+3. Write workflow and guardrails in `SKILL.md`. Add focused supporting files only when they make the skill easier to load and follow.
 4. Open a pull request. A maintainer will review before merge.
 
 ## Continuous integration
