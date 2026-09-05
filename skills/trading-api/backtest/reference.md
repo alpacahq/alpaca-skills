@@ -1,6 +1,5 @@
 # Backtest Reference
 
-Companion to `SKILL.md`. Read the workflow and guardrails there first.
 
 ## Supported asset classes
 
@@ -165,43 +164,7 @@ alpaca data <cmd> --help
 
 ## Indicator formulas
 
-These are canonical implementations. Generated code must follow these exactly.
-
-### SMA
-
-Simple arithmetic mean of the last `n` completed closes (or the specified field). No smoothing.
-
-### EMA
-
-1. Multiplier `k = 2 / (n + 1)`.
-2. Seed: first EMA = SMA of the first `n` values.
-3. Subsequent: `EMA = close * k + prev_EMA * (1 - k)`.
-
-### RSI — Wilder's smoothed
-
-1. Seed: first `avg_gain` and `avg_loss` as simple averages over the initial `period` bars.
-2. Subsequent: `avg_gain = (prev_avg_gain * (period - 1) + current_gain) / period` and `avg_loss = (prev_avg_loss * (period - 1) + current_loss) / period`.
-3. `RS = avg_gain / avg_loss`. If `avg_loss == 0`, RSI = 100.
-4. `RSI = 100 - 100 / (1 + RS)`.
-
-Do not use `sum(gains[-period:]) / period` (SMA RSI).
-
-### ATR — Wilder's smoothed
-
-1. True Range: `TR = max(high - low, |high - prev_close|, |low - prev_close|)`.
-2. Seed: first ATR = simple average of the first `period` true ranges.
-3. Subsequent: `ATR = (prev_ATR * (period - 1) + current_TR) / period`.
-
-Do not use `sum(true_ranges[-period:]) / period` (SMA ATR).
-
-### Bollinger Bands
-
-1. Middle band = SMA of `close` over `period`.
-2. Standard deviation = **population** std dev (divide by `N`, not `N-1`).
-3. Upper band = middle + `num_std * std_dev`.
-4. Lower band = middle - `num_std * std_dev`.
-
-The code must not silently substitute one indicator variant for another.
+See [talib.md](talib.md) for canonical indicator implementations and usage. Use talib by default; fall back to manual implementations only when the environment cannot install the TA-Lib C library or the strategy requires a non-standard variant.
 
 ## Fill model rules
 
