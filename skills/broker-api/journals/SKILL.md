@@ -7,7 +7,7 @@ description: Move cash (JNLC) and securities (JNLS) BETWEEN accounts inside your
 
 Journals move value **between two accounts within your own Alpaca omnibus** — typically between a pre-funded firm/sweep account and a user account. They are the engine behind "instant funding," cashback, and share rewards. They never touch the outside banking world (that's `alpaca-broker-funding-transfers`).
 
-> Read `alpaca-broker-integration` first. Broker API + HTTP Basic auth.
+> Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works).
 
 ## Reference
 - Guide: `https://docs.alpaca.markets/docs/funding-via-journals`

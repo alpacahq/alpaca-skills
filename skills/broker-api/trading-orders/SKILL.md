@@ -7,7 +7,7 @@ description: Place and manage orders on behalf of accounts via the Alpaca Broker
 
 Place, modify, cancel, and track orders for an end-user account, and read positions & buying power. The defining feature of Broker API trading: **`account_id` is in the path** — you act *for* a user account, not your own.
 
-> Read `alpaca-broker-integration` first. Broker API + HTTP Basic auth. (The standalone Trading API uses `/v2/orders` with no account in the path; everything else here transfers.)
+> Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works). (The standalone Trading API uses `/v2/orders` with no account in the path; everything else here transfers.)
 
 ## Reference
 - Guides: `https://docs.alpaca.markets/docs/orders-at-alpaca`, `https://docs.alpaca.markets/docs/fractional-trading`
