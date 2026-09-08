@@ -7,7 +7,7 @@ description: Open and manage brokerage accounts via the Alpaca Broker API — ac
 
 Create and manage end-user brokerage accounts under your firm. This is the **first** step of any Broker API integration: no funding, journaling, or trading can happen until an account reaches `ACTIVE`.
 
-> Read `alpaca-broker-integration` first for base URLs, auth, and conventions. This skill assumes **Broker API + HTTP Basic auth**.
+> Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works).
 
 ## Reference
 - Guide: `https://docs.alpaca.markets/docs/getting-started-with-broker-api`, `https://docs.alpaca.markets/docs/accounts`

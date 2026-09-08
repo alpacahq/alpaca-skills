@@ -7,7 +7,7 @@ description: Move money between an Alpaca brokerage account and the EXTERNAL ban
 
 Getting cash into and out of end-user accounts. There are **three external rails** plus Instant Funding, and for the external rails the model splits cleanly into *bank links* (persistent) and *transfers* (the actual money movement).
 
-> Read `alpaca-broker-integration` first. Broker API + HTTP Basic auth. For moving cash *between* accounts in your omnibus (vs. to/from the outside world), see `alpaca-broker-journals` — that's a different mechanism.
+> Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works). For moving cash *between* accounts in your omnibus (vs. to/from the outside world), see `alpaca-broker-journals` — that's a different mechanism.
 
 ## Reference
 - Guide: `https://docs.alpaca.markets/docs/funding-accounts`
