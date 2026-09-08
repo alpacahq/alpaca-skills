@@ -74,7 +74,7 @@ Real-time and historical US equity data. Unlike the Broker endpoints, market dat
 - `otc`, `boats` (Blue Ocean overnight ATS), `overnight` (Alpaca-derived, cheaper).
 
 **Lessons:**
-- **Pick `iex` explicitly** if you're on the free tier — some endpoints default to `sip`, which then 403s without entitlement. (A common surprise: "why is my historical request failing?" → defaulted to SIP.)
+- **Don't hard-pin `feed=iex`** — latest/snapshot endpoints default to the best feed your subscription entitles you to, and historical endpoints default to `sip` but default `end` to 15 minutes ago when you lack real-time access, so historical SIP is queryable unsubscribed as long as `end` is at least 15 minutes old. A `403` (`{"code":42210000,"message":"subscription does not permit querying recent SIP data"}`) comes from **explicitly** asking for `feed=sip` on data you aren't entitled to.
 - Without real-time access, `start`/`end` windows **withhold the most recent 15 minutes**.
 - Trade/quote **sizes are in shares** as of 2025-11-03 (were round lots before).
 
@@ -98,7 +98,7 @@ Real-time and historical US equity data. Unlike the Broker endpoints, market dat
 **Message types** (every message is a **JSON array**; `T` discriminates): `t` trade, `q` quote, `b` minute bar, `d` daily bar, `u` updated bar, `s` trading status (halt/resume), `l` LULD, `c` correction, `x` cancel/error, `i` imbalance; control: `success`, `error`, `subscription`. Subscribing to `trades` auto-adds `corrections` + `cancelErrors`.
 
 **WebSocket lessons:**
-- **One concurrent connection per key** on most plans — a 2nd connection → `{"code":406,"connection limit exceeded"}`. Centralize the stream in **one process** and fan out to your own clients (don't open a socket per user).
+- **Connection limits are per correspondent, shared by every process you run** — Broker plans allow **5** concurrent streams (Standard, StandardPlus3000, StandardPlus5000) or **10** (StandardPlus10000). Exceeding it → `[{"T":"error","code":406,"msg":"connection limit exceeded"}]`. Centralize the stream in **one process** and fan out to your own clients (don't open a socket per user).
 - Authenticate within **10s** or get dropped (`404`).
 - Other error codes: `401` not auth'd, `402` auth failed, `405` symbol limit, `407` slow client, `409` insufficient subscription (feed not entitled), `410` invalid action for feed.
 - Messages are **batched** — always iterate the array; don't assume one frame = one event.
@@ -108,7 +108,7 @@ Real-time and historical US equity data. Unlike the Broker endpoints, market dat
 
 Use the host-appropriate path (see the table in §1): `/v2/...` on the Trading API host, `/v1/...` on the Broker API host.
 
-- **Assets** (`GET /v2/assets` on Trading host · `GET /v1/assets` and `/v1/assets/{symbol}` on Broker host) — tradability metadata: `tradable`, `fractionable`, `marginable`, `shortable`, `borrow_status` (replaces deprecated `easy_to_borrow`), `status` (`active`/`inactive`), `class` (`us_equity`/`us_option`/`crypto`/`ipo`), `exchange`, `attributes[]` (e.g. `has_options`, `overnight_tradable`). Filter by `status`, `asset_class`, `exchange`. **Cache this** — it changes slowly; query it before trading to confirm `tradable`/`fractionable` (see `alpaca-broker-trading-orders`).
+- **Assets** (`GET /v2/assets` on Trading host · `GET /v1/assets` and `/v1/assets/{symbol}` on Broker host) — tradability metadata: `tradable`, `fractionable`, `marginable`, `shortable`, `borrow_status` (replaces deprecated `easy_to_borrow`), `status` (`active`/`inactive`), `class` (`us_equity`/`us_option`/`crypto`/`ipo`), `exchange`, `attributes[]` (e.g. `has_options`, `overnight_tradable`). Filter Broker `/v1/assets` by `status`, `asset_class`, `attributes` — there is **no `exchange` filter** there; Trading `/v2/assets` adds `exchange`. **Cache this** — it changes slowly; query it before trading to confirm `tradable`/`fractionable` (see `alpaca-broker-trading-orders`).
 - **Clock** (`/v2/clock` on Trading host · `/v1/clock` on Broker host) — `is_open`, `next_open`, `next_close`, `timestamp`. Use this to gate market-hours logic instead of hardcoding 9:30–16:00 ET.
 - **Calendar** (`/v2/calendar` on Trading host · `/v1/calendar` on Broker host — note there is no `/v2/calendar` on the Broker host) — per-day `open`/`close` (`HH:MM`), `session_open`/`session_close` (`HHMM`, extended hours), `settlement_date`. **Use the calendar for holidays** — a naive "weekdays only" check runs jobs on market holidays (harmless but wasteful) and miscomputes "previous trading day."
 
