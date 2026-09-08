@@ -31,7 +31,7 @@ This is the **router / overview** skill. It covers the things that are true acro
 | **Broker API** | Open & manage brokerage accounts on behalf of *your* end users (KYC, funding, journals, trading-for-accounts, documents, events). You are the broker-of-record's tech partner; you custody many sub-accounts under your firm. | Apps that onboard their own users and hold their assets (neobrokers, fintechs). |
 | **Trading API** | Trade a *single* account that belongs to the API-key holder. | Individual algo traders, bots. |
 | **Market Data API** | Real-time + historical prices, bars, quotes, trades, news, corporate actions, screener. REST and WebSocket. | Everyone. |
-| **Authentication API** | OAuth 2.0 flows for letting third parties act on an Alpaca account. | OAuth integrations. |
+| **Authentication API** | Issues access tokens: `client_credentials` for your own machine-to-machine calls, plus OAuth 2.0 flows for letting third parties act on an Alpaca account. | Every Broker partner; OAuth integrations. |
 
 **Decide first which family you're on — it changes the base URL, the auth, and the URL shape of every call.** The most common confusion: Broker API places orders at `/v1/trading/accounts/{account_id}/orders` (the account is in the path because you act *for* a user), whereas the standalone Trading API places orders at `/v2/orders` (implicitly *your own* account).
 
@@ -54,35 +54,39 @@ These skills focus primarily on the **Broker API**, because that's where the lif
 
 ## 3. Authentication
 
-Auth differs **by API family** — this trips people up constantly.
-
-### Broker API → HTTP Basic
+### Client credentials → Bearer token (Broker API, and Broker partners calling Market Data)
 
 ```
-Authorization: Basic base64("<API_KEY_ID>:<API_SECRET_KEY>")
+POST https://authx.alpaca.markets/v1/oauth2/token
+     (sandbox: https://authx.sandbox.alpaca.markets/v1/oauth2/token)
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&client_id=<CLIENT_ID>&client_secret=<CLIENT_SECRET>
 ```
 
-The same Basic credential authenticates Broker REST, Broker SSE event streams, and trading-on-behalf-of-accounts. Build the base64 token **once** at startup; don't recompute per request.
+The secret goes in the **body** (`client_secret_post`), not in an `Authorization` header. The response is `{"access_token": "…", "expires_in": 899, "token_type": "Bearer"}` — tokens are valid **15 minutes**. Send it as `Authorization: Bearer <token>`.
 
-### Market Data API → key/secret headers (or Basic in broker context)
+Documented for the Broker API, and for Broker partners calling Market Data over both REST and WebSocket. On the WebSocket the auth message uses the literal key `access_token`:
+```json
+{"action": "auth", "key": "access_token", "secret": "<ACCESS_TOKEN>"}
+```
+Not yet available for the Trading API.
+
+**Cache the token per process and refresh before expiry** — around 12 of the 15 minutes. Hold it behind one accessor that can refresh, not a startup constant. Treat a `401` on a long-lived call as *refresh and retry once* before treating it as bad credentials; whether an already-open SSE stream survives token expiry is not documented.
+
+### Legacy key/secret → still supported, and the only path for Trading API
 
 ```
 APCA-API-KEY-ID: <API_KEY_ID>
 APCA-API-SECRET-KEY: <API_SECRET_KEY>
 ```
 
-For the WebSocket data stream, you don't use headers — you send an auth message *after* connecting:
+Broker also accepts `Authorization: Basic base64("<API_KEY_ID>:<API_SECRET_KEY>")` on REST and SSE. The Trading API uses the `APCA-API-*` headers only. For the WebSocket data stream you don't use headers — you send an auth message *after* connecting:
 ```json
 {"action": "auth", "key": "<API_KEY_ID>", "secret": "<API_SECRET_KEY>"}
 ```
 
-> Broker API partners can usually authenticate market-data calls with their **Broker Basic** credentials too. Pick one scheme per data client and be consistent; mixing them is a frequent source of 401s.
-
-### Trading API → key/secret headers
-Same `APCA-API-*` headers as market data.
-
-### Authentication API → OAuth 2.0 Bearer
-For OAuth integrations, exchange the code for a token and send `Authorization: Bearer <token>`.
+> Pick one scheme per client and be consistent; mixing them is a frequent source of 401s.
 
 ---
 
@@ -96,7 +100,7 @@ Alpaca gives you three transports. Use the right one for the job — and know th
 | **SSE** | `text/event-stream` over a long-lived HTTPS GET | Broker lifecycle events: account status, journals, transfers, trades, non-trade activities. **Replayable** via cursors. | `alpaca-broker-sse-events` |
 | **WebSocket** | `wss://` | Real-time market data (trades/quotes/bars). | `alpaca-broker-market-data` |
 
-**Key distinction:** Broker *events* come over **SSE** (simple HTTP, Basic auth, replayable with `since` or `since_ulid`/`until_ulid` on v1 and `since_id` — a ULID — on v2; the v1 integer `since_id`/`until_id` are deprecated, select partners only, sunset 2027-02-15). Market *data* comes over **WebSocket** (subscribe model, auth message, ping/pong). They are different endpoints with different auth — don't conflate them.
+**Key distinction:** Broker *events* come over **SSE** (simple HTTP, replayable with `since` or `since_ulid`/`until_ulid` on v1 and `since_id` — a ULID — on v2; the v1 integer `since_id`/`until_id` are deprecated, select partners only, sunset 2027-02-15). Market *data* comes over **WebSocket** (subscribe model, auth message, ping/pong). They are different endpoints with different auth — don't conflate them.
 
 ---
 
@@ -119,7 +123,7 @@ These apply everywhere and are the source of most subtle bugs:
 When helping someone start from zero, walk them through this order:
 
 1. **Pick sandbox URLs** via an `ENV` switch.
-2. **Authenticate** with Basic (Broker) — verify with `GET /v1/accounts` (list).
+2. **Authenticate** with a client-credentials Bearer token (Broker) — verify with `GET /v1/accounts` (list).
 3. **Create an account** with full KYC payload → `alpaca-broker-account-onboarding`.
 4. **Wait for `ACTIVE`** status (via SSE account-status events or polling) before any money/trade op.
 5. **Fund it** (sandbox lets you simulate deposits) → `alpaca-broker-funding-transfers`.
@@ -149,7 +153,7 @@ When helping someone start from zero, walk them through this order:
 ## 8. Integration guidance (applies regardless of language)
 
 1. **One base-URL switch, environment-driven.** Never hardcode prod URLs in a code branch.
-2. **Build auth once.** Cache the Basic token / header set at client construction.
+2. **Hold auth behind one accessor.** Cache the Bearer token with its expiry and refresh it there, so no call site ever handles credentials.
 3. **Treat every write as async.** Model the state machine; act on terminal states, not on the `2xx`.
 4. **Persist Alpaca's IDs.** Store `account_id`, `order_id`, `journal_id`, `transfer_id` on your local records — they are your only correlation key for events and reconciliation.
 5. **Decimals, not floats**, for anything monetary. Parse the string fields into a decimal type.

@@ -7,7 +7,7 @@ description: Consume Alpaca Broker API real-time event streams over Server-Sent 
 
 Alpaca pushes brokerage lifecycle events over **Server-Sent Events**: a long-lived HTTP GET that streams `text/event-stream`. This is *not* the market-data WebSocket (`alpaca-broker-market-data`) — different transport, different auth, different reliability model.
 
-> Read `alpaca-broker-integration` first. SSE uses the **Broker API host + HTTP Basic auth** (same credential as Broker REST).
+> Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works).
 
 ## Reference
 - Guide: `https://docs.alpaca.markets/docs/sse-events`
@@ -40,9 +40,11 @@ SSE is plain HTTP. You don't need a special client: open a GET, keep the connect
 ```
 GET /v2/events/journals/status?since_id=<last-ulid-you-saw> HTTP/1.1
 Host: broker-api.alpaca.markets
-Authorization: Basic <base64(key:secret)>
+Authorization: Bearer <access-token>
 Accept: text/event-stream
 ```
+
+`Authorization: Basic <base64(key:secret)>` also works. Nothing documents whether an open stream survives token expiry, so treat a mid-stream `401` as just another drop and reconnect with your cursor.
 
 Read the response stream and parse `data: {…}` frames as they arrive. In most languages an off-the-shelf EventSource/SSE client works — **just make sure it lets you set the `Authorization` header** on the initial request (the browser `EventSource` API famously does *not*; use a server-side SSE library instead).
 

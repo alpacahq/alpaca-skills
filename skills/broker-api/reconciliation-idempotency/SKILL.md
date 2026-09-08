@@ -7,7 +7,7 @@ description: Keep local state correct against the Alpaca Broker API — idempote
 
 This is the skill that separates a demo from production. Alpaca is an **asynchronous, eventually-consistent** system: writes settle later, events can be missed or replayed, some rails emit no events at all, and "executed" can still be reversed. Your job is to make your local database a faithful, self-healing mirror of Alpaca's state.
 
-> Read `alpaca-broker-integration`, `alpaca-broker-sse-events`, and the relevant domain skills first. This skill is the architecture that ties them together.
+> Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works), then `alpaca-broker-sse-events` and the relevant domain skills. This skill is the architecture that ties them together.
 
 ## The core principle
 
