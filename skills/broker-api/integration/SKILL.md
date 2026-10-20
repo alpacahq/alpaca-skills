@@ -17,7 +17,7 @@ This is the **router / overview** skill. It covers the things that are true acro
 
 - Docs home: `https://docs.alpaca.markets/`
 - API reference: `https://docs.alpaca.markets/reference/`
-- Machine-readable index: `https://docs.alpaca.markets/llms.txt` and `https://docs.alpaca.markets/llms-full.txt`
+- Machine-readable index: `https://docs.alpaca.markets/us/llms.txt` (the root `llms.txt` is the India/GIFT City index; `llms-full.txt` redirects to the docs home)
 - OpenAPI specs (4): **Authentication API**, **Broker API**, **Market Data API**, **Trading API**
 
 **Live schema lookups:** if the `alpaca-docs` MCP server is connected, prefer it over guessing — `list-specs`, `list-endpoints`, `get-endpoint` (exact request/response schemas + servers), and `search` / `fetch` (guide pages). Always confirm an exact payload against the spec before generating code that posts money or orders.
@@ -45,7 +45,7 @@ These skills focus primarily on the **Broker API**, because that's where the lif
 |--------|-----------|-----------------|
 | **Broker API** | `https://broker-api.alpaca.markets` | `https://broker-api.sandbox.alpaca.markets` |
 | **Trading API** | `https://api.alpaca.markets` | `https://paper-api.alpaca.markets` (paper) |
-| **Market Data (REST)** | `https://data.alpaca.markets` | *(same host; sandbox data is limited)* |
+| **Market Data (REST)** | `https://data.alpaca.markets` | `https://data.sandbox.alpaca.markets` |
 | **Market Data (WebSocket)** | `wss://stream.data.alpaca.markets` | `wss://stream.data.sandbox.alpaca.markets` |
 
 **Always start in sandbox.** Switch by environment variable, never by code path — a single `ENV` flag that selects the base URL is the pattern that survives. Sandbox accounts can be funded with fake money and auto-approved, so you can exercise the full lifecycle without real KYC or cash.
@@ -96,7 +96,7 @@ Alpaca gives you three transports. Use the right one for the job — and know th
 | **SSE** | `text/event-stream` over a long-lived HTTPS GET | Broker lifecycle events: account status, journals, transfers, trades, non-trade activities. **Replayable** via cursors. | `alpaca-broker-sse-events` |
 | **WebSocket** | `wss://` | Real-time market data (trades/quotes/bars). | `alpaca-broker-market-data` |
 
-**Key distinction:** Broker *events* come over **SSE** (simple HTTP, Basic auth, replayable with `since`/`since_id`). Market *data* comes over **WebSocket** (subscribe model, auth message, ping/pong). They are different endpoints with different auth — don't conflate them.
+**Key distinction:** Broker *events* come over **SSE** (simple HTTP, Basic auth, replayable with `since` or `since_ulid`/`until_ulid` on v1 and `since_id` — a ULID — on v2; the v1 integer `since_id`/`until_id` are deprecated, select partners only, sunset 2027-02-15). Market *data* comes over **WebSocket** (subscribe model, auth message, ping/pong). They are different endpoints with different auth — don't conflate them.
 
 ---
 
@@ -105,9 +105,9 @@ Alpaca gives you three transports. Use the right one for the job — and know th
 These apply everywhere and are the source of most subtle bugs:
 
 - **Numbers are strings.** Prices, quantities, notional, and money amounts come back as JSON strings (`"100.50"`, `"1.5"`). Parse into a decimal type, never a binary float. See `alpaca-broker-money-precision`.
-- **IDs:** `account_id`, `order_id`, `journal_id`, `transfer_id` are UUIDs. Activity IDs and newer event IDs are **ULIDs** — lexicographically sortable, which matters for event ordering and replay cursors.
+- **IDs:** `account_id`, `order_id`, `journal_id`, `transfer_id` are UUIDs. Activity IDs are `<timestamp>::<uuid>` strings (e.g. `20220208125959696::88b5f678-…`) — sortable, but not ULIDs. Newer event IDs (`event_ulid` on v1, `event_id` on v2) *are* **ULIDs**, which matters for event ordering and replay cursors.
 - **Idempotency:** pass your own `client_order_id` on orders so retries don't double-fill. Records you create from events should be keyed on the Alpaca ID with upsert/skip-duplicate semantics. See `alpaca-broker-reconciliation-idempotency`.
-- **Pagination:** list endpoints page forward with a token. Market-data bars return `next_page_token` in the body; activities return a page token via the `X-Next-Page-Token` response header. Loop until the token is empty.
+- **Pagination:** list endpoints page forward with a token. Market-data bars return `next_page_token` in the body; loop until it's empty. Activities send **no** token anywhere — on both Broker `/v1/accounts/activities` and Trading `/v2/account/activities` you pass the **`id` of the last activity in the page** as the `page_token` query param, and loop until a page comes back short or empty.
 - **Rate limits:** responses carry `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` (unix seconds). On HTTP `429`, wait until reset before retrying. See `alpaca-broker-rate-limits-resilience`.
 - **Timestamps:** RFC3339 (e.g. `2026-01-02T15:04:05Z`). SSE `since`/`until` accept RFC3339, but `+` in a timezone offset must be URL-encoded as `%2B`.
 - **Status ≠ done.** Almost every write (account, journal, transfer, order) is asynchronous and moves through a **state machine**. A `200` means "accepted," not "settled." Always reconcile on the terminal status, which arrives later via event or poll.

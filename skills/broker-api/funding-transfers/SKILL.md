@@ -5,7 +5,7 @@ description: Move money between an Alpaca brokerage account and the EXTERNAL ban
 
 # Alpaca Broker API — Funding & Transfers
 
-Getting cash into and out of end-user accounts. There are **three rails**, and the model splits cleanly into *bank links* (persistent) and *transfers* (the actual money movement).
+Getting cash into and out of end-user accounts. There are **three external rails** plus Instant Funding, and for the external rails the model splits cleanly into *bank links* (persistent) and *transfers* (the actual money movement).
 
 > Read `alpaca-broker-integration` first. Broker API + HTTP Basic auth. For moving cash *between* accounts in your omnibus (vs. to/from the outside world), see `alpaca-broker-journals` — that's a different mechanism.
 
@@ -32,6 +32,7 @@ Funding wallet    (rail C: v1beta, multi-currency)  ┘
 | **ACH** | `ach` | `INCOMING` + `OUTGOING` | ACH relationship (`relationship_id`) | US domestic; set up via Plaid `processor_token` (recommended) |
 | **Wire** | `wire` | `OUTGOING` only | Bank relationship (`bank_id`) | Domestic + international (SWIFT). Incoming wires are pushed by the sending bank and booked automatically |
 | **Funding wallet** | (separate `/v1beta` API) | `incoming` / `outgoing` (lowercase) | Funding-wallet recipient bank | Multi-currency, `swift_wire`/`local_rails` |
+| **Instant Funding** | (separate `/v1/instant_funding` API) | credit only | none — you collect the payment yourself | Extends buying power immediately, settled in bulk by wire on T+1. See §8 |
 
 ## 2. Endpoints
 
@@ -43,12 +44,18 @@ Funding wallet    (rail C: v1beta, multi-currency)  ┘
 | GET | `/v1/accounts/{id}/transfers` | List transfers |
 | DELETE | `/v1/accounts/{id}/transfers/{transfer_id}` | Request cancel |
 | POST/GET | `/v1beta/accounts/{id}/funding_wallet` | Create / get funding wallet |
+| GET | `/v1beta/accounts/{id}/funding_wallet/funding_details` | Deposit instructions for the wallet |
 | POST/GET/DELETE | `/v1beta/accounts/{id}/funding_wallet/recipient_bank` | Funding-wallet recipient bank |
 | POST | `/v1beta/accounts/{id}/funding_wallet/withdrawal` | Funding-wallet withdrawal |
 | GET | `/v1beta/accounts/{id}/funding_wallet/transfers[/{transfer_id}]` | List / get wallet transfers |
+| POST/GET/DELETE | `/v1/instant_funding[/{instant_funding_id}]` | Create / get / reverse an instant funding transfer |
+| GET | `/v1/instant_funding/limits` | Correspondent-level limits (`/limits/accounts` for per-account) |
+| POST | `/v1/instant_funding/settlements` | Trigger settlement of created transfers |
 | GET | `/v2/events/funding/status` | **SSE** — unified funding status stream (see §6) |
 
 > The current wire-bank endpoint is **`/recipient_banks`** (schema `Bank`/`CreateBankRequest`). The older `/banks` name is a legacy alias.
+
+**Wallet deposit flow:** create the wallet → `GET .../funding_wallet/funding_details` for the instructions to hand the customer → customer pushes funds (in sandbox, `POST /v1beta/demo/banking/funding`) → poll `GET .../funding_wallet/transfers`.
 
 ## 3. Create-transfer request (`POST /v1/accounts/{id}/transfers`)
 
@@ -91,7 +98,7 @@ Required: `name`, `bank_code`, `bank_code_type`, `account_number`.
 
 (The SSE `Transfer` entity also reports `EXPIRED`, which is effectively terminal.)
 
-**Funding-wallet transfers (`FundingWalletTransferStatus`):** `PENDING`, `EXECUTED`, `COMPLETE`, `CANCELED`, `FAILED` (last three terminal). Note lowercase `incoming`/`outgoing` directions here — different casing from classic transfers.
+**Funding-wallet transfers:** `PENDING` → `EXECUTED` → `COMPLETE`, with `REJECTED` (bank rejected, usually bad input) and `FAILED` (bank error) as the other exits. Wallet transfers **cannot be canceled**; the terminal set is `COMPLETE` / `REJECTED` / `FAILED`. The OpenAPI `FundingWalletTransferStatus` enum still lists `CANCELED` and omits `REJECTED` — trust the guide and treat the union as terminal. Note lowercase `incoming`/`outgoing` directions here — different casing from classic transfers.
 
 ## 6. Events vs polling — the key reliability lesson
 
@@ -109,18 +116,17 @@ Required: `name`, `bank_code`, `bank_code_type`, `account_number`.
 - **Incoming wires need an FFC (For Further Credit) instruction** to auto-book; otherwise they're handled manually.
 - **Travel Rule:** Alpaca requires transmitter/originator info on **all incoming deposits regardless of amount** (below the usual FinCEN $3,000 threshold). Pass it at settlement creation; retained ≥5 years.
 - **ACH uses Plaid:** pass the bank via `processor_token`. There's an `instant` flag on the relationship. Account types limited to `CHECKING`/`SAVINGS`.
-- **`timing: immediate` is deprecated** and silently ignored (sunset 2026-08-26) — stop sending it.
-- **Permission errors:** `403` if the account's `depositable_status`/`withdrawable_status` isn't allowed; `422` for incoming-wire attempts, missing/mismatched relationship vs bank IDs, or amounts under the (undocumented) minimums.
+- **Permission errors:** `403` when the account isn't permitted to deposit or withdraw. The message names the failing permission (`depositable_status` / `withdrawable_status`); neither exists as a field on the account object, so there is nothing to pre-check — handle the 403 and surface its message. `422` for incoming-wire attempts, missing/mismatched relationship vs bank IDs, or amounts under the (undocumented) minimums.
 - **Sandbox wire behavior:** simulated end-to-end but **asynchronous** and auto-completes **on weekdays only** — weekend submissions don't progress until Monday. (ACH in sandbox settles instantly.)
 
-## 8. The omnibus / sweep-account pattern (architecture lesson)
+## 8. Instant availability: two supported models
 
-Many production brokers don't fund each user account by a separate external transfer. Instead:
+Alpaca documents two ways to let a user trade before their cash lands, with different settlement obligations.
 
-1. Users pay you through *your* payment processor (or you receive a bulk wire into a **firm/sweep account** held at Alpaca).
-2. You then **journal** cash from the firm account to the user's account instantly (`JNLC`) — no external ACH/wire per user. See `alpaca-broker-journals`.
-3. Withdrawals reverse it: journal from user → firm account, then send one external transfer out.
+**Cash pooling (omnibus + journals)** — the docs call this the most common use case: bulk-wire into your pre-funded firm account, then `JNLC` to the user the moment you receive their payment; reverse for withdrawals. You pre-fund, so you owe Alpaca nothing per transfer. Requires Alpaca review and possibly a local money-transmitter license. See `alpaca-broker-journals`.
 
-This decouples your funding UX from Alpaca's transfer rails and enables "instant" deposits. It requires Alpaca review (and possibly a local money-transmitter license) — confirm with counsel. The classic transfer endpoints in this skill then handle only the *firm-account-to-outside-world* leg.
+**Instant Funding** — `POST /v1/instant_funding` extends buying power at the user account without pre-funding, so Alpaca is extending you credit and you settle later. Per-account limit defaults to USD 1,000 (raiseable on request); correspondent headroom is `GET /v1/instant_funding/limits`, per-account headroom is `GET /v1/instant_funding/limits/accounts?account_numbers=…`.
+
+Settlement is your obligation and it is tight. Transfers batch in a 24-hour window ending 8 PM ET, you wire one bulk payment to your `SI` firm account, then call `POST /v1/instant_funding/settlements` (carrying the Travel Rule `originator_*` fields) **before 1 PM ET on T+1**. Late settlement accrues penalty interest at FED UB + 8%, invoiced monthly. Unreconciled transfers auto-cancel at **8 PM ET on T+1**, which drops the customer account into a debit balance if they already spent the credit. Full flow: `https://docs.alpaca.markets/us/docs/instant-funding`.
 
 **Related skills:** internal cash movement → `alpaca-broker-journals`; missed-status recovery → `alpaca-broker-reconciliation-idempotency`; money formatting → `alpaca-broker-money-precision`; live status → `alpaca-broker-sse-events`.

@@ -46,7 +46,7 @@ Journals move value **between two accounts within your own Alpaca omnibus** — 
 | `from_account` / `to_account` | required | required | account UUIDs |
 | `amount` | **required** | — | decimal string |
 | `symbol` / `qty` | — | **required** | qty is a string; fractional allowed |
-| `currency` | optional | optional | defaults USD |
+| `currency` | optional | optional | no documented default |
 | `description` | optional | optional | ≤1024 chars; accepts sandbox fixtures |
 | `transmitter_*` | optional (JNLC) | n/a | Travel Rule fields |
 
@@ -75,20 +75,21 @@ Pass an `Idempotency-Key` header (≤128 chars; a client-generated UUID is recom
   "entries": [ { "from_account": "<u1>", "amount": "10" }, { "from_account": "<u2>", "amount": "100" } ] }
 ```
 
-Every entry must validate or the **entire batch fails** (one bad account ID kills it). The response is an array of `BatchJournalResponse` (the Journal object + an `error_message` per entry that failed). `Idempotency-Key` is supported with the same semantics.
+Every entry must validate or the **entire batch fails** (one bad account ID kills it). They diverge after that: `/batch` accepts `Idempotency-Key` and returns `BatchJournalResponse` (the Journal object + an `error_message` per entry that failed), while `/reverse_batch` documents neither — it returns a plain array of `JNLC` with no per-item error, so guard reverse-batch replays locally.
 
 ## 5. Status lifecycle
 
-`JournalStatus`: `queued`, `sent_to_clearing`, `pending`, `executed`, `rejected`, `canceled`, `refused`, `deleted`, `correct`.
+`JournalStatus`: `queued`, `sent_to_clearing`, `pending`, `executed`, `activity_created`, `rejected`, `canceled`, `refused`, `deleted`, `correct`.
 
-**Happy path:** `queued → sent_to_clearing → executed`.
+**Happy path depends on the JNLC version Alpaca has set for you.** JNLS and JNLC v1: `queued → sent_to_clearing → executed`. JNLC v2 (single cash journals only; batches still run v1): the create response frequently comes back already `executed`, then `activity_created` follows, and `sent_to_clearing` appears only on the manual-approval path. Accept all ten statuses either way — `executed` is the one that means buying power moved.
 
 | Status | Meaning | Terminal |
 |--------|---------|----------|
 | `queued` | In queue | no |
 | `sent_to_clearing` | Submitted to books-and-records | no |
-| `pending` | Needs Alpaca ops approval (e.g. hit a JNLC daily limit) | no |
+| `pending` | Needs Alpaca ops approval (usually a JNLC limit — see §7) | no |
 | `executed` | Balances updated — **but NOT final**, can still be reversed by cashiering | no (not final) |
+| `activity_created` | Non-trade activity created (JNLC v2 only); informational, still reversible | no (not final) |
 | `rejected` | Manually rejected | no |
 | `refused` | Failed preliminary checks; never hit the ledger (e.g. a fast replay failing the balance check) | no |
 | `canceled` | Canceled via API/ops | **FINAL** |
@@ -108,7 +109,8 @@ Every entry must validate or the **entire batch fails** (one bad account ID kill
 - **Eligibility:** the cash-pooling/journals use case requires Alpaca review and possibly a local license — check with counsel.
 - **JNLS account states:** `to_account` must be `ACTIVE`; `from_account` must be `ACTIVE` or `CLOSE`.
 - **Sufficient funds:** JNLC create → `403` if the amount isn't available; reverse-batch `403` = insufficient balance/assets.
-- **Daily limits push to `pending`** (manual ops approval).
+- **JNLC limits push to `pending`** (manual ops approval): a per-transaction limit (default **$50**) and a daily aggregate limit (default **$1,000**). Both are configurable; an over-limit journal executes in the next day's BOD job.
+- **Pre-check `cash_transferable`** on the trading account — it is "Cash available for transfer (JNLC)", unlike `cash`, which counts unsettled sale proceeds.
 - **`GET /v1/journals` returns `422` if the result set exceeds 100,000 records** — always filter with `after`/`before`/`limit`.
 - **Delete is pending-only:** `DELETE` succeeds (204) only when `pending`; an executed journal → `422`. **To reverse an executed journal, create a mirror journal in the opposite direction**, don't try to delete it.
 - **Travel Rule:** include transmitter info on money-moving journals (required on all incoming deposits regardless of amount).

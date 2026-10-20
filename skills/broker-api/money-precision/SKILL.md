@@ -26,13 +26,13 @@ Alpaca returns prices, quantities, notional, and money amounts as **JSON strings
 
 ## 2. Round/truncate before sending — and know the direction
 
-Alpaca generally accepts **2 decimal places for cash** amounts and up to **9 for fractional share `qty`/`notional`**. If you send more precision than allowed, you risk rejection or silent rounding on their side.
+Orders take **up to 2 decimal places for `notional` and 9 for `qty`** (Broker API FAQ; the order schema's "2 decimal points" on `qty` is stale). Journal `amount` has no documented precision limit — send cash at 2 dp anyway (§3).
 
 **Rule:** explicitly round/truncate to the target precision *before* the API call, using a deliberate rounding mode.
 
-- For **money you're moving out / charging**, **truncate (round down)** to 2 dp so you never move more than intended. (e.g. `floor(amount * 100) / 100`.)
+- For **money you're moving out / charging**, **truncate (round down)** to 2 dp so you never move more than intended (e.g. `floor(amount * 100) / 100`). This is house policy, not an API constraint, and it applies to cash only — never truncate a share `qty` this way.
 - Pick the rounding mode consciously (`ROUND_DOWN` vs `ROUND_HALF_UP`) — don't inherit whatever the default float formatting does.
-- Re-round after every arithmetic step that could reintroduce precision (e.g. computing `amount * percentage` for a split allocation), not just at the end.
+- Carry full precision through the arithmetic and round **once**, at the boundary where the value is sent or displayed. Rounding intermediates compounds error.
 
 ```
 # splitting a deposit across holdings — round each slice down, track remainder
@@ -41,13 +41,13 @@ slice = truncate(total * (pct / 100), 2)
 
 ## 3. Fractional shares
 
-- `qty` and `notional` support up to **9 decimal places**.
+- `notional` takes 2 decimal places, `qty` takes 9. Round each to its own limit before sending.
 - `qty` XOR `notional` — never both (see `alpaca-broker-trading-orders`).
 - Don't reconstruct `qty` from `notional / price` and send it — pass `notional` and let Alpaca compute the fill. Round-tripping through a price you fetched introduces drift.
 
 ## 4. Storage
 
-- Store money in your DB as **fixed-point decimal**, not float. A practical pattern is generous precision/scale, e.g. `DECIMAL(20, 8)` — wide enough for multi-currency and fractional, with headroom beyond Alpaca's 2-dp cash so you never lose data you received.
+- Store money in your DB as **fixed-point decimal**, not float, with a scale at least as wide as the widest field you receive — scale ≥ 9 for `qty`, so the 9-dp fractional case can't silently truncate.
 - **Store what Alpaca sent verbatim** alongside any converted/derived values. If you truncate to 2 dp for the API call but received more precision back, keep both — it makes reconciliation and audits possible.
 - Keep an explicit **currency** column; Alpaca is multi-currency on some rails (funding wallet) even though most is USD.
 
@@ -61,8 +61,8 @@ slice = truncate(total * (pct / 100), 2)
 - [ ] Money fields parsed from strings into a **decimal** type; serialized back to strings.
 - [ ] **No binary floats** anywhere in the move-money path.
 - [ ] Amounts rounded/truncated to the allowed precision **before** the call, with an intentional rounding mode (round *down* for outgoing money).
-- [ ] Re-round after each intermediate computation.
-- [ ] DB columns are fixed-point decimal with headroom; raw Alpaca values stored verbatim.
+- [ ] Full precision carried through arithmetic; rounded once at the send/display boundary.
+- [ ] DB columns are fixed-point decimal with scale ≥ 9; raw Alpaca values stored verbatim.
 - [ ] Explicit currency tracked.
 
 **Related skills:** order qty/notional rules → `alpaca-broker-trading-orders`; journal/transfer amounts → `alpaca-broker-journals`, `alpaca-broker-funding-transfers`; reconciling stored vs Alpaca values → `alpaca-broker-reconciliation-idempotency`.

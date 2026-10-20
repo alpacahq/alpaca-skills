@@ -71,7 +71,7 @@ Four objects are **required**: `contact`, `identity`, `disclosures`, `agreements
 - `contact.street_address` is an **array** (max 3 lines). `contact.state` required when country/tax-residence is `USA`.
 - `identity.funding_source` is an array; one+ of `employment_income`, `investments`, `inheritance`, `business_income`, `savings`, `family`.
 - `tax_id_type` enum is large and country-specific: `USA_SSN`, `USA_ITIN`, `IND_PAN`, `MEX_RFC`, `GBR_NINO`, … plus generic `NATIONAL_ID`, `PASSPORT`, `DRIVER_LICENSE`, `OTHER_GOV_ID`, `NOT_SPECIFIED`. Query the spec for the full list rather than hardcoding.
-- Optional top-level: `account_type` (`trading`|`custodial`|`donor_advised`|`ira`), `account_sub_type` (IRA: `traditional`|`roth`), `enabled_assets` (`us_equity`|`us_option`|`crypto`|`ipo`, default `us_equity`).
+- Optional top-level: `account_type` (`trading`|`custodial`|`donor_advised`|`ira`), `account_sub_type` (IRA: `traditional`|`roth`), `enabled_assets` (`us_equity`|`us_option`|`crypto`|`ipo`, default `us_equity`), `allow_instant_ach` (default `false` — the partner-side switch for Instant ACH).
 - **Deprecated:** `investment_objective`/`investment_time_horizon`/`liquidity_needs`/`risk_tolerance` moved from `identity` to **top-level**.
 
 **Responses:** `200` → account object · `409` email already registered · `422` invalid value · `400` malformed body.
@@ -91,6 +91,7 @@ Each entry: `agreement` (`customer_agreement`, `account_agreement`, `margin_agre
 - `document_type` enum includes `identity_verification`, `address_verification`, `date_of_birth_verification`, `tax_id_verification`, `w8ben`, `w9`, `cip_result`, and more.
 - `mime_type`: `application/pdf`, `image/png`, `image/jpeg` — plus `application/json` **only** for `w8ben`.
 - **W-8BEN shortcut (lesson):** instead of generating a PDF, upload `content_data` as a structured `W8benDocument` JSON object (full_name, country_citizen, permanent_address_*, date_of_birth, ip_address, timestamp, signer_full_name, …) and **Alpaca renders the official form for you**. This is the clean way to satisfy the tax-form requirement for non-US persons programmatically.
+- **W-8BEN expires.** A new form must be submitted every three years, in addition to the calendar year it was signed — schedule the renewal, don't treat the upload as one-and-done.
 - Doc size cap: **10 MB** per file when using Alpaca's KYC-as-a-service; no cap if you run your own KYC.
 
 ## 5. Account status lifecycle
@@ -99,35 +100,37 @@ Each entry: `agreement` (`customer_agreement`, `account_agreement`, `margin_agre
 
 | Status | Meaning |
 |--------|---------|
-| `ONBOARDING` | Application expected, not yet submitted |
+| `INACTIVE` | Not enabled for the given asset |
+| `PAPER_ONLY` | Limited to paper trading |
+| `ONBOARDING` | Created but KYC not yet performed — **only used with Onfido** (the OpenAPI enum text still describes it as "application expected, not yet submitted") |
 | `SUBMITTED` | Submitted, being processed |
-| `SUBMISSION_FAILED` | Submission error |
-| `ACTION_REQUIRED` | Needs manual action (e.g. a `true` disclosure routes here) |
-| `APPROVAL_PENDING` | Approval in progress (documented "initial value") |
+| `SUBMISSION_FAILED` | Submission error; Alpaca resolves these, no action needed |
+| `ACTION_REQUIRED` | Manual action + a document upload from the user (e.g. a `true` disclosure routes here); see `kyc_results` |
+| `APPROVAL_PENDING` | The account did not pass the automatic KYC check, so the team reviews manually — usually no document required |
 | `APPROVED` | Approved, waiting to go active |
 | `ACTIVE` | **Fully usable** — funding & trading allowed |
 | `REJECTED` | Application rejected |
-| `ACCOUNT_UPDATED` | Modified by user |
+| `ACCOUNT_UPDATED` | Personal information under review; transient, returns to `ACTIVE`. Outgoing transfers are restricted meanwhile |
 | `ACCOUNT_CLOSED` | Closed |
-| `INACTIVE` | Not enabled for the given asset |
 
-**Happy path:** `SUBMITTED → APPROVAL_PENDING → APPROVED → ACTIVE`.
+**Happy path:** `SUBMITTED → APPROVED → ACTIVE`. `APPROVAL_PENDING` and `ACTION_REQUIRED` are the exception branches when the automatic KYC check does not pass; either can rejoin at `APPROVED` or end in `REJECTED`. (The OpenAPI enum still calls `APPROVAL_PENDING` the "initial value"; the statuses guide is the newer source.)
 
-**Lesson — gate every downstream op on `ACTIVE`.** A `200` from `POST /v1/accounts` does *not* mean tradable. Subscribe to account-status SSE events (or poll `GET /v1/accounts/{id}`) and only enable funding/journals/trading once `status == ACTIVE`. Trying to journal or trade into a non-active account fails.
+**Lesson — gate every downstream op on `ACTIVE`.** A `200` from `POST /v1/accounts` does *not* mean tradable. Subscribe to account-status SSE events (or poll `GET /v1/accounts/{id}`) and only enable funding/journals/trading once `status == ACTIVE`. Trying to journal or trade into a non-active account fails. Gate crypto on `crypto_status`, which tracks separately from `status`. Treat `ACCOUNT_UPDATED` as transient-restricted rather than failed — the account returns to `ACTIVE` after review.
 
 ## 6. KYC results & CIP
 
-- `kyc_results` on the account object carries `reject`/`accept`/`indeterminate` categories (`KYCResultType` values like `IDENTITY_VERIFICATION`, `TAX_IDENTIFICATION`, `ADDRESS_VERIFICATION`, `WATCHLIST_HIT`, `COUNTRY_NOT_SUPPORTED`, `OTHER`) plus `additional_information`. `summary` is `pass`/`fail` (internal only).
+- `kyc_results` on the account object carries `reject`/`accept`/`indeterminate` sets plus `additional_information`. `summary` is `pass`/`fail` (internal only).
+- **`KYCResultType` is an extensible string set, not a closed enum.** Examples only: `IDENTITY_VERIFICATION`, `WATCHLIST_HIT`, `W8BEN_CORRECTION`. Generated code must tolerate and preserve unrecognized values rather than parsing into a fixed enum. The documented identifiers live under `KYCResults` at `https://docs.alpaca.markets/reference/getaccount`.
 - If you run KYC yourself (or via Onfido/Trulioo/Veriff/etc.), submit results via `POST /v1/accounts/{id}/cip` with a `CIPInfo` body (provider_name, kyc, document, photo, identity, watchlist sub-results). Sub-check results are `clear`/`consider`.
 - Minimum to open an individual account: verify **name, date of birth, address, and identification number**.
-- `WATCHLIST_HIT` / `COUNTRY_NOT_SUPPORTED` require no user action — Alpaca handles them manually.
+- `WATCHLIST_HIT` needs no action from the account owner unless Alpaca separately requests it.
 
 ## 7. Integration guidance & lessons learned
 
 1. **Normalize inputs to canonical formats before sending.** Country fields must be **ISO 3166-1 alpha-3** (`USA`, `PHL`, …) — strip any UI decoration (flags/emoji, display names) and validate against `GET /v1/country-info`. Garbage in `country`/`country_of_tax_residence` is a common 422.
 2. **Capture real agreement metadata.** `signed_at` and `ip_address` must reflect the actual user action, not server time / a placeholder.
 3. **Treat creation as async.** Persist the returned `account_id` immediately, then drive UI off the **status events**, not the create response.
-4. **Guard against paper/test accounts in production code paths.** If you run both sandbox and live, make sure live event handlers reject sandbox/paper account IDs rather than silently mutating real records.
+4. **Keep sandbox and live credentials/config in separate deployments.** There is nothing in an account id to check — ids are plain UUIDs, and the two environments are separate hosts with separate credentials.
 5. **Idempotency on submit.** A `409` on duplicate email is your friend — look up the existing account rather than retrying creation. Store your local user↔`account_id` mapping before the network call so a timeout doesn't orphan an account.
 6. **Closing is your responsibility to sequence.** Before `POST .../actions/close`, you must liquidate all positions and withdraw all cash. The account record is not deleted — it goes `ACCOUNT_CLOSED`.
 
