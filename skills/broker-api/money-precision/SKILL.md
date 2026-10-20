@@ -7,7 +7,7 @@ description: Handle money and numeric precision correctly with the Alpaca API â€
 
 Financial bugs are silent and expensive. Alpaca's wire format and the realities of decimal arithmetic create a few specific traps. This skill is short, opinionated, and language-agnostic.
 
-> Read `alpaca-broker-integration` first.
+> Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works).
 
 ## 1. Numbers come as strings â€” keep them that way
 

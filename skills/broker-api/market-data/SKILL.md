@@ -21,7 +21,7 @@ Real-time and historical US equity data. Unlike the Broker endpoints, market dat
 | Market data WebSocket | `wss://stream.data.alpaca.markets/{version}/{feed}` |
 | Assets / clock / calendar | `https://api.alpaca.markets` (Trading API) — paper: `paper-api.alpaca.markets` |
 
-**Auth:** headers `APCA-API-KEY-ID` / `APCA-API-SECRET-KEY` (Broker partners may use Broker Basic auth in broker context).
+**Auth:** Broker partners authenticate with a **client-credentials access token** (`POST https://authx.alpaca.markets/v1/oauth2/token` — flow in `alpaca-broker-integration`): send `Authorization: Bearer <token>` on REST and on the WS handshake, or authenticate over WS with `{"action":"auth","key":"access_token","secret":"<token>"}` (the literal string `access_token` is the key). Tokens are valid **15 minutes** — cache and refresh one, don't mint per call. Key/secret (`APCA-API-*` headers, or `{"action":"auth","key":"…","secret":"…"}` on WS) is the Trading API path and the documented **legacy** Broker path.
 
 ## 1. REST endpoints
 
