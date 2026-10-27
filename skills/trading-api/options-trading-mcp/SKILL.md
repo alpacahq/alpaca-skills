@@ -1002,16 +1002,20 @@ Net option flow per share: \(N = D_{pL} - C_c - C_{pS}\) (adjust signs if net cr
 | **Max gain @ expiry** | \(K_c - B - N\) |
 | **Breakeven @ expiry** | Solve per region below. \(B + N\) is a root **only** when \(K_{pL} \le B + N \le K_c\). If no region contains a root, report **no breakeven** |
 
-**Expiry P&L / share** (\(K_{pS} < K_{pL} < K_c\); keep a root only inside its region):
+**Expiry P&L / share** (\(K_{pS} < K_{pL} < K_c\); keep a root only if it is inside its region **and** \(\ge 0\) — stock price cannot go negative):
 
 | Region | P&L / share | Root |
 |--------|-------------|------|
-| \(S < K_{pS}\) | \(S - B + (K_{pL} - K_{pS}) - N\) | \(B + N - (K_{pL} - K_{pS})\), keep if \(< K_{pS}\) |
+| \(S < K_{pS}\) | \(S - B + (K_{pL} - K_{pS}) - N\) | \(B + N - (K_{pL} - K_{pS})\), keep only if \(0 \le \text{root} < K_{pS}\) |
 | \(K_{pS} \le S < K_{pL}\) | flat \(K_{pL} - B - N\) | the whole segment, only if this equals 0 |
 | \(K_{pL} \le S \le K_c\) | \(S - B - N\) | \(B + N\), keep if inside the segment |
 | \(S > K_c\) | flat \(K_c - B - N\) | the whole region, only if this equals 0 |
 
-Example: basis \(80\), long put \(95\), short put \(90\), short call \(110\), \(N = 0\). \(B + N = 80\) is below \(K_{pL}\), so it is not a breakeven (P&L there is \(+5\)). The root in \(S < K_{pS}\) is \(75\).
+If the first-region root is negative, there is **no breakeven in that region** — check \(S = 0\) directly: if P&L at \(S=0\) is already positive, the position profits at every reachable price and has no breakeven at all.
+
+Example 1 (breakeven exists): basis \(80\), long put \(95\), short put \(90\), short call \(110\), \(N = 0\). \(B + N = 80\) is below \(K_{pL}\), so it is not a breakeven (P&L there is \(+5\)). The root in \(S < K_{pS}\) is \(75\), which is \(\ge 0\) — keep it.
+
+Example 2 (no breakeven): basis \(3\), long put \(95\), short put \(90\), short call \(110\), \(N = 0\). The first-region root is \(3 + 0 - (95-90) = -2\), which is negative — reject it. P&L at \(S=0\) is \(+2\), so this position profits at every possible price; report **no breakeven**.
 
 **Your agent must** build a 5+ row payoff table — piecewise between \(K_{pS}\), \(K_{pL}\), \(K_c\).
 
