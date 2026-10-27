@@ -1,22 +1,24 @@
 ---
 name: alpaca-trading-options-trading-cli
 description: >
-  Research and structure defined-risk US options strategies on Alpaca paper accounts
-  using the Alpaca CLI. Ask investment outlook, shortlist 2–3 catalog structures
-  for user selection, then preview/submit via alpaca CLI when explicitly requested.
-  Self-contained: strategy catalog, education, payoff, comparison, examples, CLI
-  reference (Parts II–VII). Not investment advice.
+  Research and structure defined-risk US options strategies on your Alpaca account
+  using the Alpaca CLI. Agent asks you to choose paper or live and pick the CLI
+  profile to authenticate with before any Alpaca call, asks investment outlook,
+  shortlists 2–3 catalog structures for user selection, then preview/submit via
+  alpaca CLI when explicitly requested. Self-contained: strategy catalog,
+  education, payoff, comparison, examples, CLI reference (Parts II–VII). Not
+  investment advice.
 ---
 
 # Alpaca Options Trading — CLI Version
 
-Use this skill when you want your AI agent to help you **explore** defined-risk US options strategies on Alpaca **paper** using the **`alpaca` CLI**.
+Use this skill when you want your AI agent to help you **explore** defined-risk US options strategies on Alpaca using the **`alpaca` CLI** — in **either paper or live**, your choice.
 
-Your agent **asks your investment outlook first**, shortlists **≥2–3** catalog structures for **you to select**, and only runs CLI order commands when you **explicitly** request execution. It does **not** recommend a specific trade or open with an order ticket.
+Your agent **asks whether this session is paper or live, and which CLI profile to use, before any Alpaca call**, then **asks your investment outlook first**, shortlists **≥2–3** catalog structures for **you to select**, and only runs CLI order commands when you **explicitly** request execution. It does **not** recommend a specific trade or open with an order ticket.
 
-This skill is written for you, a Trading API user working with your own Alpaca paper-trading account, CLI profile, and local workspace. Your agent executes all operations through the `alpaca` command-line tool, stays within the **25-strategy catalog** in **Part II**, and presents tradeoffs objectively — **not investment advice**.
+This skill is written for you, a Trading API user working with your own Alpaca account, CLI profile(s), and local workspace. Your agent executes all operations through the `alpaca` command-line tool, stays within the **25-strategy catalog** in **Part II**, and presents tradeoffs objectively — **not investment advice**.
 
-This is the CLI-specific version. An MCP-server version is also available as a companion skill.
+This is the CLI-specific version. An MCP-server version is also available as a companion skill. For a dedicated paper-only equity/crypto workflow that hard-blocks live credentials, use `alpaca-trading-paper-trading-cli` instead.
 
 **All shell commands require `required_permissions: ["all"]`.** Run outside the sandbox so the CLI can access local authentication. The CLI prints JSON by default; filter it with the built-in `--jq` flag.
 
@@ -24,31 +26,33 @@ This is the CLI-specific version. An MCP-server version is also available as a c
 
 ## 0 - How your AI agent should use this skill
 
-1. **Prove paper mode and confirm the account before any other Alpaca call.** Run `alpaca doctor` and require its `Trading:` line to read `https://paper-api.alpaca.markets`. The profile name is not proof — an exported `ALPACA_LIVE_TRADE=true` sends a profile named "paper" to the live endpoint, and `alpaca doctor` reports the fully resolved result. Never pass `-p`/`--profile` to any command: `alpaca doctor` silently ignores it while other commands honor it, so the check and the order could resolve to different endpoints. To target a non-default profile, set `ALPACA_PROFILE` once for the session (see [`alpaca-trading-paper-trading-cli`](../paper-trading-cli/SKILL.md) Step 10). Then run `alpaca account get --jq '.account_number'` and show only the full `account_number` plus **PAPER**. Repeat both facts in every order preview. Stop if the endpoint is not paper or `account_number` is missing. Do not display API keys, secrets, or credential variable names.
+1. **Ask paper or live, then pick the CLI profile, before any other Alpaca call.** Ask: "Paper or live trading for this session?" Do not assume paper. Run `alpaca profile list --json` and show the available profiles. If more than one profile exists, ask the user which one to use — never pick silently, even if a profile name looks obviously right. If only one profile exists, confirm with the user that it's the one they want. Set the chosen profile as `ALPACA_PROFILE` for the session — **never** pass `-p`/`--profile` per command, since some commands honor it and others (like `alpaca doctor`) ignore it, which can make the check and the order resolve to different endpoints.
 
-2. **Ask subjective outlook first** if missing (underlying, direction, horizon, max loss budget). Do not ask the user to recall holdings or events when Alpaca CLI access is available.
+2. **Verify the chosen profile matches what the user asked for.** Run `alpaca doctor` and `alpaca account get --jq '.account_number'`. Show only the full `account_number` and **PAPER** or **LIVE**, classified from the `Trading:` line `alpaca doctor` reports (`https://paper-api.alpaca.markets` = paper; `https://api.alpaca.markets` = live) — not from the profile name alone, since a profile named "paper" can still resolve to live if `ALPACA_LIVE_TRADE` is set. If the resolved environment **disagrees** with what the user said in Step 1, **STOP** and surface the mismatch — do not proceed on either environment or let the user override by re-stating intent without fixing the profile. Repeat both facts in every order preview. Stop if `account_number` is missing. Do not display API keys, secrets, or credential variable names.
 
-3. **Enrich from Alpaca CLI before shortlisting.** Run `alpaca position list` and match the underlying. Then use `alpaca data corporate-actions`—the CLI wrapper for Alpaca's [`GET /v1/corporate-actions`](https://docs.alpaca.markets/us/reference/corporateactions-1)—with symbol, start, end, `data_quality=all`, and pagination through target expiry. Inspect dividends, splits, mergers, spin-offs, reorganizations, redemptions, and all other returned types. Run `alpaca data news` separately for earnings/catalyst evidence. Use `--help`/`--schema` to discover installed flags. Label news-derived dates unconfirmed; Alpaca has no dedicated earnings calendar.
+3. **Ask subjective outlook first** if missing (underlying, direction, horizon, max loss budget). Do not ask the user to recall holdings or events when Alpaca CLI access is available.
 
-4. **Shortlist ≥2–3 structures** from **Part V** using the verified holding/event context — objective comparison; **you select** the catalog strategy #. No “recommended” trade.
+4. **Enrich from Alpaca CLI before shortlisting.** Run `alpaca position list` and match the underlying. Then use `alpaca data corporate-actions`—the CLI wrapper for Alpaca's [`GET /v1/corporate-actions`](https://docs.alpaca.markets/us/reference/corporateactions-1)—with symbol, start, end, `data_quality=all`, and pagination through target expiry. Inspect dividends, splits, mergers, spin-offs, reorganizations, redemptions, and all other returned types. Run `alpaca data news` separately for earnings/catalyst evidence. Use `--help`/`--schema` to discover installed flags. Label news-derived dates unconfirmed; Alpaca has no dedicated earnings calendar.
 
-5. **Teach when needed.** **Part III** (modules A–K).
+5. **Shortlist ≥2–3 structures** from **Part V** using the verified holding/event context — objective comparison; **you select** the catalog strategy #. No “recommended” trade.
 
-6. **Run payoff calculator** (**Part IV**) after **you** select a structure — re-run when strikes or credit change (Module F).
+6. **Teach when needed.** **Part III** (modules A–K).
 
-7. **Execute only on explicit request** — gather legs, show CLI preview + exact command, then confirm or auto-submit per `confirmation_mode`.
+7. **Run payoff calculator** (**Part IV**) after **you** select a structure — re-run when strikes or credit change (Module F).
 
-8. **Reconfirm paper before execution.** Repeat the full `account_number` and `PAPER`. Re-run `alpaca doctor` and **STOP** unless its `Trading:` line is the paper endpoint — this skill never submits to a live account.
+8. **Execute only on explicit request** — gather legs, show CLI preview + exact command, then confirm or auto-submit per `confirmation_mode` (paper) or typed `LIVE` (live).
 
-9. **Discover contracts** — `alpaca data option chain` (**Part VII**).
+9. **Reconfirm environment and profile before execution.** Repeat the full `account_number` and `PAPER` or `LIVE`. Re-run `alpaca doctor`. On **live**, the preview must carry a real-money warning and submission requires the user to type the literal word `LIVE` — `confirmation_mode` has no effect on this gate.
 
-10. **Show order preview** with account number, `PAPER`, payoff table, the full CLI command(s), and the `--dry-run` request body — **never** before the user selects a structure and asks to execute.
+10. **Discover contracts** — `alpaca data option chain` (**Part VII**).
 
-11. **Confirm before submit** — `confirmation_mode: on` (default) prompts yes/no after preview; `off` auto-submits after preview.
+11. **Show order preview** with account number, `PAPER` or `LIVE`, the active CLI profile name, payoff table, the full CLI command(s), and the `--dry-run` request body — **never** before the user selects a structure and asks to execute.
 
-12. **Submit** — `alpaca order submit` (single-leg, or `--order-class mleg --legs` for multi-leg).
+12. **Confirm before submit** — on **paper**, `confirmation_mode: on` (default) prompts yes/no after preview and `off` auto-submits after preview. On **live**, submission always requires the user to type `LIVE`, regardless of `confirmation_mode`.
 
-13. **Monitor** — `alpaca order get --order-id`, `alpaca position list`.
+13. **Submit** — `alpaca order submit` (single-leg, or `--order-class mleg --legs` for multi-leg).
+
+14. **Monitor** — `alpaca order get --order-id`, `alpaca position list`. If credentials or profile change mid-session, re-run Steps 1–2.
 
 ---
 
@@ -72,19 +76,22 @@ go install github.com/alpacahq/cli/cmd/alpaca@latest
 
 > The CLI is in **Alpha Preview**. Commands, flags, and output formats may change between releases, so your agent discovers flags with `--help` rather than trusting any list in this file.
 
-### Paper profile configured
+### Profile(s) configured for the environment(s) you'll use
 
 ```bash
 alpaca profile login --api-key
+alpaca profile list --json
 alpaca doctor
 ```
+
+Set up a profile for each environment you expect to use (e.g., one paper profile, one live profile). Your agent lists and picks between them at session start (§0 Step 1) — it does not assume there's only one.
 
 ### Runtime
 
 | Requirement | Detail |
 |---|---|
-| Paper endpoint | `alpaca doctor` `Trading:` line is `https://paper-api.alpaca.markets`; verified each session |
-| Options enabled | Paper: enabled by default; confirm `options_trading_level` (the effective level) ≥ strategy need |
+| CLI profile | At least one configured; agent lists and picks one each session (§0 Step 1) |
+| Options enabled | Paper: enabled by default; live: needs dashboard approval; confirm `options_trading_level` (the effective level) ≥ strategy need |
 | `--jq` | Built-in filter for the CLI's JSON output; external `jq` is not required |
 | Strategy catalog | **Part II** (below) |
 | Education | **Part III** |
@@ -97,6 +104,7 @@ alpaca doctor
 
 | Parameter | Description | Default | Required |
 |---|---|---|---|
+| `account_mode` | `paper` or `live` | **Ask if missing — no default** | Yes |
 | `intent` | Research, structure, or execute | **`structure`** | Yes |
 | `strategy` | One of 25 from **Part II** | **You select** from shortlist | Yes (execute) |
 | `underlying` | e.g., `SPY`, `AAPL` | — | Yes (structure/execute) |
@@ -107,32 +115,35 @@ alpaca doctor
 | `limit_price` | Net debit/credit for `mleg` | From quotes | Conditional |
 | `position_intent` | Per leg | Inferred | Yes (options) |
 | `time_in_force` | `day`, `gtc` | `day` | Yes |
-| `confirmation_mode` | `on` = yes after preview; `off` = auto-submit after preview | `on` | No |
-| `profile` | CLI profile name, set via `ALPACA_PROFILE` for the whole session — **never** with `-p`/`--profile` | Active paper profile | No |
+| `confirmation_mode` | `on` = yes after preview; `off` = auto-submit after preview (paper only — live always requires typed `LIVE`) | `on` | No |
+| `profile` | CLI profile name | **User-selected** from `alpaca profile list --json` (§0 Step 1) | Yes |
 
 ### Confirmation mode (`confirmation_mode`)
 
-| Value | Behavior |
-|-------|----------|
-| `on` (default) | Preview → **Submit? (yes / no)** → submit on yes |
-| `off` | Preview → **submit immediately** (no yes/no) |
+| Value | Paper behavior | Live behavior |
+|-------|----------------|---------------|
+| `on` (default) | Preview → **Submit? (yes / no)** → submit on yes | Preview with real-money warning → user types the literal word `LIVE` → submit |
+| `off` | Preview → **submit immediately** (no yes/no) | **No effect.** Live ignores `confirmation_mode: off` — typing `LIVE` is always required |
 
-Set at session start or per trade (`on` | `off`). Your agent records the active value in every preview and `notes.md`.
+Set at session start or per trade (`on` | `off`). Your agent records the active value, the chosen profile, and the environment in every preview and `notes.md`.
 
-**When `off`:** preview remains mandatory (legs, limit, max loss, payoff summary, environment). No yes/no prompt. The paper gate still runs before every submit.
+**Paper, `off`:** preview remains mandatory (legs, limit, max loss, payoff summary, environment, profile). No yes/no prompt.
 
-**When `on`:** require explicit yes before every submit.
+**Paper, `on`:** require explicit yes before every submit.
 
-`confirmation_mode` governs order entry only. Exercise instructions always require an explicit yes.
+**Live, any `confirmation_mode`:** preview carries a real-money warning. Submission requires the user to type the literal word `LIVE` — not "yes." This is never auto-submitted, even with `confirmation_mode: off`.
 
-Wheel and multi-step workflows: each **order submit** follows the active `confirmation_mode`.
+`confirmation_mode` governs order entry only on paper. Exercise instructions always require an explicit yes (paper or live).
+
+Wheel and multi-step workflows: each **order submit** follows this logic independently.
 
 
 ### Strategy confirmation checklist
 
 Before building orders, your agent confirms:
 
-- [ ] Full `account_number` and `PAPER` shown before account-based results and in the preview
+- [ ] You stated `paper` or `live`, picked a profile from `alpaca profile list --json`, and the verified `alpaca doctor` environment matches
+- [ ] Full `account_number` and `PAPER` or `LIVE` shown before account-based results and in the preview
 - [ ] Holdings were queried from Alpaca; failed lookups are marked unknown
 - [ ] Corporate Actions + News were searched through target expiry
 - [ ] News-derived event dates are labeled unconfirmed
@@ -140,9 +151,9 @@ Before building orders, your agent confirms:
 - [ ] All legs: OCC symbols, intents, ratios
 - [ ] Options approval level sufficient
 - [ ] Stock held for covered structures (if applicable)
-- [ ] Paper endpoint verified (`alpaca doctor` `Trading:` line is paper-api; no `-p`/`--profile` in any command)
+- [ ] `alpaca doctor` passed for the chosen profile (no `-p`/`--profile` in any command)
 - [ ] `options_buying_power` sufficient for proposed order
-- [ ] Full CLI command(s) shown in preview
+- [ ] Full CLI command(s) shown in preview, including the active profile name
 
 ---
 
@@ -166,6 +177,14 @@ Your agent runs `alpaca order submit --help` before assuming flags. For `mleg`, 
 
 ## 4 - Workflow
 
+### Phase 0: Environment and profile selection (every session)
+
+```bash
+alpaca profile list --json
+```
+
+Ask the user "paper or live?" and which listed profile to use. Set `ALPACA_PROFILE` for the session (never `-p`/`--profile` per command).
+
 ### Phase 1: Strategy confirmation
 
 Map your intent to one of 25 strategies. Restate outlook, legs, and max loss. Wait for your confirmation.
@@ -174,14 +193,14 @@ Map your intent to one of 25 strategies. Restate outlook, legs, and max loss. Wa
 
 Relevant **Part III** modules for new users or short premium.
 
-### Phase 3: Paper verification (every session)
+### Phase 3: Account verification (every session)
 
 ```bash
 alpaca doctor
 alpaca account get --jq '{account_number, status, trading_blocked, options_approved_level, options_trading_level, options_buying_power, buying_power}'
 ```
 
-**STOP** unless the `alpaca doctor` `Trading:` line reads `https://paper-api.alpaca.markets`. The account response never proves paper on its own — live and paper accounts return the same shape.
+Classify environment from the `alpaca doctor` `Trading:` line, not the profile name. **STOP** if this does not match what the user asked for in Phase 0.
 
 ### Phase 4: Contract discovery
 
@@ -222,11 +241,11 @@ alpaca order submit \
   --legs '[ ... ]'
 ```
 
-Run the exact command with `--dry-run` first and show its request body in the preview. Show full preview table, exact command, and `confirmation_mode`. If `on`, ask **Submit? (yes / no)**. If `off`, run after preview.
+Run the exact command with `--dry-run` first and show its request body in the preview. Show full preview table (profile, `PAPER`/`LIVE`, legs, limit, max loss), exact command, and `confirmation_mode`. On **paper**: if `on`, ask **Submit? (yes / no)**; if `off`, run after preview. On **live**: always show the real-money warning and ask the user to type the literal word `LIVE` — `confirmation_mode` does not change this.
 
 ### Phase 6: Submit and monitor
 
-Execute after your yes (or after the preview when `confirmation_mode` is `off`). Poll `alpaca order get --order-id …`. Refresh `alpaca position list`.
+Execute after your yes (paper) or typed `LIVE` (live). Poll `alpaca order get --order-id …`. Refresh `alpaca position list`.
 
 ### Phase 7: Exercise (when needed)
 
@@ -234,7 +253,7 @@ Execute after your yes (or after the preview when `confirmation_mode` is `off`).
 alpaca option exercise --help
 ```
 
-Exercise acts on all held contracts of the symbol and is irreversible — show the contract, the resulting underlying obligation, and the cash impact, and require an explicit yes regardless of `confirmation_mode`. Warn about automatic ITM exercise at expiry per [Alpaca options docs](https://docs.alpaca.markets/us/docs/options-trading).
+Exercise acts on all held contracts of the symbol and is irreversible — show the contract, the resulting underlying obligation, and the cash impact, and require an explicit yes regardless of `confirmation_mode` (and on live, also regardless of the typed-`LIVE` order gate). Warn about automatic ITM exercise at expiry per [Alpaca options docs](https://docs.alpaca.markets/us/docs/options-trading).
 
 ---
 
@@ -259,10 +278,10 @@ Save every CLI stdout/stderr to `raw/`.
 
 ## 6 - Execution rules
 
-1. **Account identity first** — show the full `account_number` and `PAPER` before any other account result
+1. **Environment and profile first** — ask paper or live, list profiles with `alpaca profile list --json`, let the user pick, then show the full `account_number` and `PAPER` or `LIVE` before any other account result
 2. **Outlook first** — ask investment outlook; shortlist **≥2–3** structures; **user selects** before any CLI order command
 3. **No trade recommendations** — objective comparisons only; not investment advice
-4. **Paper only** — `alpaca doctor` must resolve to the paper endpoint before every submission; never pass `-p`/`--profile`
+4. **No default environment** — never assume paper; verify the chosen profile's resolved environment matches stated intent before every submission; never pass `-p`/`--profile`
 5. **All commands** — `required_permissions: ["all"]`
 6. **Discover flags** — `--help` before assuming syntax
 7. **JSON output** — the CLI prints JSON by default; filter with `--jq`
@@ -282,21 +301,25 @@ Before every submit, re-run the strategy confirmation checklist in §2 and the *
 
 ## 8 - Disclosures, safety, and data handling
 
-> Options involve significant risk and are not suitable for all investors. Read the [Options Disclosure Document](https://www.theocc.com/company-information/documents-and-archives/options-disclosure-document). Paper trading is simulated. This material is not investment advice. Review [Alpaca disclosures](https://alpaca.markets/disclosures).
+> Options involve significant risk and are not suitable for all investors. Read the [Options Disclosure Document](https://www.theocc.com/company-information/documents-and-archives/options-disclosure-document). Paper trading is simulated and may not reflect live fills, fees, or liquidity. **Live trading risks real money** — losses can exceed the premium paid on short-option positions. This material is not investment advice. Review [Alpaca disclosures](https://alpaca.markets/disclosures).
 
-Your agent includes this in sessions involving order placement. Never store API keys in run folders.
+Your agent includes this in sessions involving order placement, and repeats the live-specific warning on every live preview. Never store API keys in run folders.
 
 ---
 
 ## 9 - Anti-patterns
 
-- **NEVER** use account data or preview an order without showing the full `account_number` and `PAPER`
+- **NEVER** assume paper (or live) — ask which environment the session uses before any Alpaca call
+- **NEVER** auto-select a CLI profile when more than one is configured — list them and let the user choose
+- **NEVER** trust a profile's name as proof of environment — classify from `alpaca doctor`'s `Trading:` line
+- **NEVER** pass `-p`/`--profile` per command — set `ALPACA_PROFILE` once for the session so the check and the order resolve to the same endpoint
+- **NEVER** use account data or preview an order without showing the full `account_number` and whether the profile is `PAPER` or `LIVE`
 - **NEVER** recommend a specific trade or build CLI order commands before the user selects a structure and sets execute intent
 - **NEVER** shortlist fewer than 2 catalog structures when matching an outlook (unless only one valid after exclusions)
 - **NEVER** ask the user for holdings before trying `alpaca position list`
 - **NEVER** present Alpaca News as an authoritative earnings calendar
-- **NEVER** submit unless `alpaca doctor` resolves to the paper endpoint — this skill does not trade live
-- **NEVER** treat the profile name as proof of paper, or pass `-p`/`--profile` to any command
+- **NEVER** accept "yes" (or anything other than the literal word `LIVE`) as sufficient to submit a live order
+- **NEVER** let `confirmation_mode: off` bypass the typed `LIVE` confirmation on a live profile
 - **NEVER** bypass CLI with raw `curl` when this is the CLI skill
 - **NEVER** omit `--position-intent` on options
 - **NEVER** use non-simplified `ratio_qty` in mleg JSON
@@ -312,7 +335,7 @@ Your agent includes this in sessions involving order placement. Never store API 
 
 | Part | Section | Contents |
 |---|---|---|
-| **I** | §0–§9 above | CLI workflow, paper verification, command patterns |
+| **I** | §0–§9 above | CLI workflow, environment/profile selection, command patterns |
 | **II** | Strategy Catalog | All 25 strategies |
 | **III** | Education Modules | Modules A–K |
 | **IV** | Payoff Calculator | Breakeven engine (#1–25) |
@@ -325,7 +348,7 @@ Your agent includes this in sessions involving order placement. Never store API 
 | Skill | Description |
 |---|---|
 | `alpaca-trading-options-trading-mcp` | MCP execution version |
-| `alpaca-trading-paper-trading-cli` | Generic paper CLI workflow; source of the paper gate |
+| `alpaca-trading-paper-trading-cli` | Dedicated paper-only equity/crypto CLI workflow — hard-blocks live |
 | `alpaca-trading-backtest` | Historical signals |
 
 ---
@@ -826,12 +849,12 @@ Always include before order placement:
 
 **Cover:**
 
-1. **Account identity** — before using the account, prove paper mode (§0 Step 1) and show the full `account_number` with `PAPER`. Repeat both in every order preview.
-2. **Paper enablement** — options enabled by default on paper accounts.
+1. **Choose the environment first** — your agent asks paper or live before any Alpaca call; it does not default to paper. It then lists CLI profiles with `alpaca profile list --json`, lets you pick one, and shows the full `account_number` plus `PAPER` or `LIVE`, classified from `alpaca doctor`'s `Trading:` line. Repeat both in every order preview. Stop on a mismatch between stated and verified environment.
+2. **Options enablement** — options enabled by default on paper accounts; live accounts need dashboard approval.
 3. **Buying power** — check `options_buying_power` (and `buying_power`) before debits and CSPs.
 4. **Contracts API defaults** — omitting `expiration_date_lte` returns only through **next weekend**; set explicit date range.
 5. **GTC orders** — supported; warn about cross-session fills when you choose `gtc`.
-6. **Confirmation mode** — `on` (default) requires yes after preview; `off` auto-submits after preview. Both are paper-only.
+6. **Confirmation mode** — on **paper**, `on` (default) requires yes after preview and `off` auto-submits after preview. On **live**, submission always requires the user to type the literal word `LIVE` in the preview — `confirmation_mode` has no effect on live.
 7. **Structure vs execute** — shortlist **≥2–3** catalog structures from outlook; **you select** before any order preview (compliance — not investment advice).
 8. **Automatic holdings context** — query Alpaca positions before shortlisting. A failed query means “unknown,” not “no shares.”
 9. **Automatic event context** — query Corporate Actions through target expiry for dividends, splits, mergers, and related events; search Alpaca News for earnings/catalyst mentions.
@@ -849,7 +872,7 @@ Always include before order placement:
 |------|---------------------|
 | **Research / learn** | Teach modules A–K; no orders |
 | **Structure** | Ask outlook → shortlist **≥2–3** strategies from catalog; **you select**; optional Part IV payoff — **no order preview** |
-| **Execute** | Full workflow after **your** structure selection + the paper gate in §0 Step 1; `confirmation_mode` controls auto-submit after preview |
+| **Execute** | Full workflow after **your** structure selection + environment/profile verification in §0 Steps 1–2; paper uses `confirmation_mode`, live always requires typed `LIVE` |
 
 If you skip education modules on your first session, your agent offers a one-paragraph summary of max loss and assignment risk before preview.
 
@@ -1449,7 +1472,34 @@ When comparing strategies with **different DTE profiles**, state the assumption 
 
 # Part VI — Examples
 
-**Pattern:** Ask outlook → shortlist **≥2–3** structures → **user selects** → execute only when asked.
+CLI end-to-end patterns. Discover flags with `--help` on your installed version.
+
+**Pattern:** Ask paper or live → pick profile → ask outlook → shortlist **≥2–3** structures → **user selects** → CLI order commands only when asked.
+
+---
+
+## Example -1 — Choosing paper vs live and picking a profile
+
+**User:** Help me trade options on AAPL.
+
+**Agent:**
+
+1. Ask: "Paper or live trading for this session?"
+2. List profiles:
+
+```bash
+alpaca profile list --json
+```
+
+3. User picks a profile (e.g., `paper` after stating paper). Set `export ALPACA_PROFILE=paper` for the session — never `-p`/`--profile`.
+4. Verify:
+
+```bash
+alpaca doctor    # classify PAPER/LIVE from Trading: line
+alpaca account get --jq '.account_number'
+```
+
+5. Show full `account_number` and `PAPER` or `LIVE`. **STOP** if the verified environment disagrees with Step 1.
 
 ---
 
@@ -1457,7 +1507,7 @@ When comparing strategies with **different DTE profiles**, state the assumption 
 
 **User:** What options play makes sense on NVDA?
 
-**Agent:** Ask direction, DTE, and max loss. Then run `alpaca position list`, `alpaca data corporate-actions`, and `alpaca data news` through target expiry. Label news-derived dates unconfirmed. Shortlist ≥2 from **Part V** (e.g., #9 bull call, #11 bull put, #4 CSP). **User picks** before any `alpaca order submit`.
+**Agent:** After Example -1 environment/profile selection: ask direction, DTE, and max loss. Then run `alpaca position list`, `alpaca data corporate-actions`, and `alpaca data news` through target expiry. Label news-derived dates unconfirmed. Shortlist ≥2 from **Part V** (e.g., #9 bull call, #11 bull put, #4 CSP). **User picks** before any `alpaca order submit`.
 
 ---
 
@@ -1475,28 +1525,21 @@ When comparing strategies with **different DTE profiles**, state the assumption 
 
 **Agent:**
 
-1. Confirm user selected strategy #17.
-2. Verify paper:
-
-```bash
-alpaca doctor    # Trading: line must read https://paper-api.alpaca.markets
-alpaca account get --jq '{account_number, options_trading_level}'
-```
-
-3. Chain:
+1. Confirm user selected strategy #17 and re-verify the paper profile (`alpaca doctor` → `PAPER`).
+2. Chain:
 
 ```bash
 alpaca data option chain --underlying-symbol SPY --expiration-date-gte 2026-09-01 --expiration-date-lte 2026-10-31
 ```
 
-4. Preview: `--dry-run` request body + max loss.
-5. On yes:
+3. Preview: `--dry-run` request body + max loss + profile + `PAPER`.
+4. On yes (paper, `confirmation_mode: on`):
 
 ```bash
 alpaca order submit --order-class mleg --qty 1 --type limit --limit-price 1.80 --time-in-force day --legs '[ ... 4 legs ... ]'
 ```
 
-6. Monitor: `alpaca order get --order-id …`
+5. Monitor: `alpaca order get --order-id …`
 
 ---
 
@@ -1551,17 +1594,31 @@ alpaca order submit \
 
 ---
 
-## Example 6 — Auto-submit (`confirmation_mode: off`)
+## Example 6 — Auto-submit (`confirmation_mode: off`) on paper
 
 **User:** Paper bull put spread on AAPL; don't ask me to confirm each order.
 
 **Agent:**
 
-1. Set `confirmation_mode: off`. The paper gate still runs before every submit.
-2. Run payoff + preview table (max loss, legs, CLI command, `--dry-run` body).
-3. Log `confirmation_mode: off` in `notes.md`.
-4. Execute `alpaca order submit --order-class mleg ... --legs '[ ... ]'` without yes/no prompt.
-5. Monitor with `alpaca order get --order-id …`.
+1. Confirm environment is paper and profile still resolves to paper via `alpaca doctor`.
+2. Set `confirmation_mode: off`.
+3. Run payoff + preview table (max loss, legs, CLI command, `--dry-run` body, profile, `PAPER`).
+4. Log `confirmation_mode: off` in `notes.md`.
+5. Execute `alpaca order submit --order-class mleg ... --legs '[ ... ]'` without yes/no prompt.
+6. Monitor with `alpaca order get --order-id …`.
+
+---
+
+## Example 7 — Live order requires typing `LIVE`, even with `confirmation_mode: off`
+
+**User:** Live trade the previewed iron condor. Don't ask me to confirm — `confirmation_mode: off`.
+
+**Agent:**
+
+1. Confirm environment is live and profile resolves to `https://api.alpaca.markets`.
+2. Show preview with real-money warning, profile, `LIVE`, max loss, and `--dry-run` body.
+3. User replies "yes" → **reject**. Require the literal word `LIVE`.
+4. User types `LIVE` → submit. `confirmation_mode: off` does not skip this gate.
 
 ---
 
@@ -1577,10 +1634,22 @@ All commands require `required_permissions: ["all"]`. Output is JSON by default;
 
 ```bash
 alpaca version
-alpaca doctor    # Trading: line must read https://paper-api.alpaca.markets
+alpaca profile list --json
+# Ask paper or live; user picks a profile; then:
+export ALPACA_PROFILE=<chosen-profile>   # never -p/--profile per command
+alpaca doctor    # classify PAPER/LIVE from Trading: line; must match stated intent
 alpaca account get --jq '{account_number, status, buying_power, options_trading_level, options_buying_power, equity}'
 alpaca clock
 ```
+
+### Profile & environment selection
+
+- List: `alpaca profile list --json`
+- Activate for the session: `export ALPACA_PROFILE=<name>` — **never** `-p`/`--profile` on individual commands (`alpaca doctor` ignores `-p`)
+- Classify environment from `alpaca doctor`'s `Trading:` line:
+  - `https://paper-api.alpaca.markets` → `PAPER`
+  - `https://api.alpaca.markets` → `LIVE`
+- Gotcha: a profile named "paper" can still resolve to live if `ALPACA_LIVE_TRADE=true` is exported — always trust `alpaca doctor`, not the profile name
 
 ---
 

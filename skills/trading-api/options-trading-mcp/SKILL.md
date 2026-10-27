@@ -1,22 +1,24 @@
 ---
 name: alpaca-trading-options-trading-mcp
 description: >
-  Research and structure defined-risk US options strategies on Alpaca paper accounts
-  using the Alpaca Trading API MCP Server. Ask investment outlook, shortlist 2–3
-  catalog structures for user selection, then preview/place orders via MCP when
-  explicitly requested. Self-contained: catalog, education, payoff, comparison,
-  examples (Parts II–VI). Not investment advice.
+  Research and structure defined-risk US options strategies on your Alpaca account
+  using the Alpaca Trading API MCP Server. Agent asks you to choose paper or live
+  and, if multiple Alpaca MCP server entries are configured, pick which one to
+  authenticate with before any account call, asks investment outlook, shortlists
+  2–3 catalog structures for user selection, then preview/place orders via MCP
+  when explicitly requested. Self-contained: catalog, education, payoff,
+  comparison, examples (Parts II–VI). Not investment advice.
 ---
 
 # Alpaca Options Trading — MCP Server Version
 
-Use this skill when you want your AI agent to help you **explore** defined-risk US options strategies on Alpaca **paper** using the **Alpaca Trading API MCP Server**.
+Use this skill when you want your AI agent to help you **explore** defined-risk US options strategies on Alpaca using the **Alpaca Trading API MCP Server** — in **either paper or live**, your choice.
 
-Your agent **asks your investment outlook first**, shortlists **≥2–3** catalog structures for **you to select**, and only calls order MCP tools when you **explicitly** request execution. It does **not** recommend a specific trade or open with an order ticket.
+Your agent **asks whether this session is paper or live, and (if more than one Alpaca MCP server is configured) which one to use, before any account call**, then **asks your investment outlook first**, shortlists **≥2–3** catalog structures for **you to select**, and only calls order MCP tools when you **explicitly** request execution. It does **not** recommend a specific trade or open with an order ticket.
 
-This skill is written for you, a Trading API user working with your own Alpaca paper-trading account. Your agent calls MCP tools directly — no CLI installation or raw HTTP requests needed — and stays within the **25-strategy catalog** in **Part II**. Presentations are objective — **not investment advice**.
+This skill is written for you, a Trading API user working with your own Alpaca account(s). Your agent calls MCP tools directly — no CLI installation or raw HTTP requests needed — and stays within the **25-strategy catalog** in **Part II**. Presentations are objective — **not investment advice**.
 
-This is the MCP-server-specific version. A CLI version is also available as a companion skill.
+This is the MCP-server-specific version. A CLI version is also available as a companion skill. For a dedicated paper-only equity/crypto workflow that hard-blocks live credentials, use `alpaca-trading-paper-trading-mcp` instead.
 
 MCP tool calls do **not** need `required_permissions: ["all"]`.
 
@@ -24,25 +26,32 @@ MCP tool calls do **not** need `required_permissions: ["all"]`.
 
 ## 0 — How your AI agent should use this skill
 
-1. **Prove paper mode and confirm the account before any other account tool call.** Paper versus live is set solely by `ALPACA_PAPER_TRADE` in the MCP server's `env` block, and no tool reports it. Read only that one field for the server entry backing the discovered namespace, following the single-field extraction in [`alpaca-trading-paper-trading-mcp`](../paper-trading-mcp/SKILL.md) Step 12 — never read the config wholesale, because the same block holds the API keys. Require the flag to be absent, `true`, `1`, or `yes`; anything else, or an unreadable config, fails closed. Then discover the account tool with `GetDynamicTools`, call it, and show only the full `account_number` plus `PAPER`. Repeat both facts in every order preview. Stop if paper mode is unproven or the account number is missing. Do not display API keys, secrets, or credential variable names.
+1. **Ask paper or live, then pick the Alpaca MCP server, before any account tool call.** Ask: "Paper or live trading for this session?" Do not assume paper. Call `GetDynamicTools` with `{"pattern": "alpaca"}` (or similar) to discover **every** Alpaca-like namespace available — the user may have a single entry, or separate entries for paper and live. If more than one matching namespace exists, list them and ask the user which to use — never pick silently. If only one exists, you will confirm in Step 2 that it actually matches what the user asked for; if it doesn't, tell the user they need to add or reconfigure an MCP server entry for the other environment rather than proceeding on the wrong one.
 
-2. **Ask subjective outlook first** if missing (underlying, direction, horizon, max loss budget). Do not ask the user to recall holdings or events when Alpaca MCP data tools are available.
+2. **Verify the chosen namespace matches what the user asked for.** Paper versus live is set solely by `ALPACA_PAPER_TRADE` in the MCP server's `env` block, and no tool reports it. Read **only that one field** for the server entry backing the chosen namespace, following the single-field extraction in [`alpaca-trading-paper-trading-mcp`](../paper-trading-mcp/SKILL.md) Step 12 — never read the config wholesale, because the same block holds the API keys. Classify:
+   - **PAPER** when the flag is absent, `true`, `1`, or `yes`
+   - **LIVE** for any other value (including `false`)
+   - Fail closed (STOP) if the config is unreadable or the entry is missing
 
-3. **Discover context tools** with `GetDynamicTools`: search for positions, corporate actions, and news capabilities. Query positions for the underlying. For events, require a tool backed by Alpaca's [`GET /v1/corporate-actions`](https://docs.alpaca.markets/us/reference/corporateactions-1); pass the underlying symbol, today/target-expiry date window, `data_quality=all`, and paginate all results. Inspect dividends, splits, mergers, spin-offs, reorganizations, redemptions, and all other returned action types. Query News separately and label news-derived earnings/catalyst dates unconfirmed because Alpaca has no dedicated earnings-calendar endpoint.
+   Then discover the account tool with `GetDynamicTools`, call it, and show only the full `account_number` plus `PAPER` or `LIVE`. If this **disagrees** with the user's stated choice in Step 1, **STOP** and surface the mismatch — do not proceed on either environment or silently fall back to the other namespace. Repeat both facts in every order preview. Stop if the account number is missing. Do not display API keys, secrets, or credential variable names.
 
-4. **Handle connector gaps safely.** If the MCP server lacks Corporate Actions or News tools, state exactly what could not be checked. Do not fall back to CLI/HTTP in this MCP skill; ask the user only for material missing context.
+3. **Ask subjective outlook first** if missing (underlying, direction, horizon, max loss budget). Do not ask the user to recall holdings or events when Alpaca MCP data tools are available.
 
-5. **Shortlist ≥2–3 structures** from **Part V** using verified account/event context — objective comparison; **you select** the catalog strategy #.
+4. **Discover context tools** with `GetDynamicTools`: search for positions, corporate actions, and news capabilities **on the chosen namespace**. Query positions for the underlying. For events, require a tool backed by Alpaca's [`GET /v1/corporate-actions`](https://docs.alpaca.markets/us/reference/corporateactions-1); pass the underlying symbol, today/target-expiry date window, `data_quality=all`, and paginate all results. Inspect dividends, splits, mergers, spin-offs, reorganizations, redemptions, and all other returned action types. Query News separately and label news-derived earnings/catalyst dates unconfirmed because Alpaca has no dedicated earnings-calendar endpoint.
 
-6. **Teach when needed.** **Part III** (modules A–K).
+5. **Handle connector gaps safely.** If the MCP server lacks Corporate Actions or News tools, state exactly what could not be checked. Do not fall back to CLI/HTTP in this MCP skill; ask the user only for material missing context.
 
-7. **Run payoff calculator** (**Part IV**) after **you** select a structure — re-run when strikes or credit change.
+6. **Shortlist ≥2–3 structures** from **Part V** using verified account/event context — objective comparison; **you select** the catalog strategy #.
 
-8. **Reconfirm paper before execution.** Repeat the full `account_number` and `PAPER`. **STOP** if paper mode cannot be proven — this skill never submits to a live account.
+7. **Teach when needed.** **Part III** (modules A–K).
 
-9. **Execute only on explicit request** — chain/snapshot research, order preview with MCP arguments, then confirm or auto-submit per `confirmation_mode`.
+8. **Run payoff calculator** (**Part IV**) after **you** select a structure — re-run when strikes or credit change.
 
-10. **Monitor** positions/orders after submit.
+9. **Reconfirm environment and namespace before execution.** Repeat the full `account_number` and `PAPER` or `LIVE`. Re-read `ALPACA_PAPER_TRADE` for the chosen entry. On **live**, the preview must carry a real-money warning and submission requires the user to type the literal word `LIVE` — `confirmation_mode` has no effect on this gate.
+
+10. **Execute only on explicit request** — chain/snapshot research, order preview with MCP arguments, then confirm or auto-submit per `confirmation_mode` (paper) or typed `LIVE` (live).
+
+11. **Monitor** positions/orders after submit, on the same namespace verified in Steps 1–2.
 
 ---
 
@@ -51,18 +60,19 @@ MCP tool calls do **not** need `required_permissions: ["all"]`.
 ### Required
 
 - **Alpaca Trading API MCP Server** installed in your agent host — [alpaca-mcp-server](https://github.com/alpacahq/alpaca-mcp-server)
-- **Paper API key and secret** in MCP server env — never pasted into chat or passed as tool arguments
-- MCP namespace discoverable via `GetDynamicTools`
-- Paper trading account active at Alpaca
+- **API key and secret for each environment you want to use** in MCP server env — never pasted into chat or passed as tool arguments
+- At least one MCP namespace discoverable via `GetDynamicTools`; two (one paper, one live) if you want your agent to offer a real choice each session
 
 ### MCP server configuration (Cursor, v2)
 
 The [alpaca-mcp-server](https://github.com/alpacahq/alpaca-mcp-server) README is the source of truth for the package name, command, and environment variables. See [`alpaca-trading-paper-trading-mcp`](../paper-trading-mcp/SKILL.md) §1 for the full variable table.
 
+Each MCP server entry is wired to **one** environment via `ALPACA_PAPER_TRADE`. To support both paper and live, configure **two** entries (names are yours to choose):
+
 ```json
 {
   "mcpServers": {
-    "alpaca-paper-trading": {
+    "alpaca-paper": {
       "command": "uvx",
       "args": ["alpaca-mcp-server"],
       "env": {
@@ -70,12 +80,21 @@ The [alpaca-mcp-server](https://github.com/alpacahq/alpaca-mcp-server) README is
         "ALPACA_SECRET_KEY": "your-paper-secret",
         "ALPACA_PAPER_TRADE": "true"
       }
+    },
+    "alpaca-live": {
+      "command": "uvx",
+      "args": ["alpaca-mcp-server"],
+      "env": {
+        "ALPACA_API_KEY": "your-live-key",
+        "ALPACA_SECRET_KEY": "your-live-secret",
+        "ALPACA_PAPER_TRADE": "false"
+      }
     }
   }
 }
 ```
 
-The server derives the API host from `ALPACA_PAPER_TRADE`, so there is no base-URL variable to set or verify.
+The server derives the API host from `ALPACA_PAPER_TRADE`, so there is no base-URL variable to set or verify. With only one entry configured, your agent can only offer the environment that entry is wired to — it tells you which one and asks you to add the other entry if you want a choice.
 
 If `namespaceStatus: "needsAuth"` → authenticate via `mcp_auth`, then retry.
 
@@ -87,6 +106,7 @@ If namespace is `"error"` or not found → tell you to fix MCP config. Do **not*
 
 | Parameter | Required | Default | Notes |
 |---|---|---|---|
+| `account_mode` | Yes | **Ask if missing — no default** | `paper` or `live` |
 | `intent` | Yes | `structure` | `research` / `structure` / `execute` |
 | `strategy` | Yes (execute) | — | **You select** from shortlist; one of 25 from **Part II** |
 | `underlying` | Yes (structure/execute) | — | e.g., `SPY` |
@@ -97,32 +117,35 @@ If namespace is `"error"` or not found → tell you to fix MCP config. Do **not*
 | `type` | Yes | `limit` | `limit` or `market` |
 | `limit_price` | If limit | — | Net debit/credit for mleg |
 | `time_in_force` | Yes | `day` | `day`, `gtc` |
-| `confirmation_mode` | No | `on` | `on` = yes after preview; `off` = auto-submit after preview |
-| `mcp_namespace` | Discovered | — | Via `GetDynamicTools` |
+| `confirmation_mode` | No | `on` | `on` = yes after preview; `off` = auto-submit after preview (paper only — live always requires typed `LIVE`) |
+| `mcp_namespace` | Yes | — | **User-selected** via `GetDynamicTools` (§0 Step 1) when more than one Alpaca-like namespace exists |
 
 ### Confirmation mode (`confirmation_mode`)
 
-| Value | Behavior |
-|-------|----------|
-| `on` (default) | Preview → **Submit? (yes / no)** → submit on yes |
-| `off` | Preview → **submit immediately** (no yes/no) |
+| Value | Paper behavior | Live behavior |
+|-------|----------------|---------------|
+| `on` (default) | Preview → **Submit? (yes / no)** → submit on yes | Preview with real-money warning → user types the literal word `LIVE` → submit |
+| `off` | Preview → **submit immediately** (no yes/no) | **No effect.** Live ignores `confirmation_mode: off` — typing `LIVE` is always required |
 
-Set at session start or per trade (`on` | `off`). Your agent records the active value in every preview and `notes.md`.
+Set at session start or per trade (`on` | `off`). Your agent records the active value, the chosen namespace, and the environment in every preview and `notes.md`.
 
-**When `off`:** preview remains mandatory (legs, limit, max loss, payoff summary, environment). No yes/no prompt. The paper gate still runs before every submit.
+**Paper, `off`:** preview remains mandatory (legs, limit, max loss, payoff summary, environment). No yes/no prompt.
 
-**When `on`:** require explicit yes before every submit.
+**Paper, `on`:** require explicit yes before every submit.
 
-`confirmation_mode` governs order entry only. Exercise instructions always require an explicit yes.
+**Live, any `confirmation_mode`:** preview carries a real-money warning. Submission requires the user to type the literal word `LIVE` — not "yes." Never auto-submitted, even with `confirmation_mode: off`.
 
-Wheel and multi-step workflows: each **order submit** follows the active `confirmation_mode`.
+`confirmation_mode` governs order entry only on paper. Exercise instructions always require an explicit yes (paper or live).
+
+Wheel and multi-step workflows: each **order submit** follows this logic independently.
 
 
 ### Strategy confirmation checklist
 
 Before order preview, your agent confirms:
 
-- [ ] Full `account_number` and `PAPER` shown before account-based results and in the preview
+- [ ] You stated `paper` or `live`, picked a namespace (if more than one matched), and the verified `ALPACA_PAPER_TRADE` environment matches
+- [ ] Full `account_number` and `PAPER` or `LIVE` shown before account-based results and in the preview
 - [ ] Holdings were queried from Alpaca; failed lookups are marked unknown
 - [ ] Corporate Actions + News were searched, or unavailable MCP capabilities were disclosed
 - [ ] News-derived event dates are labeled unconfirmed
@@ -131,7 +154,6 @@ Before order preview, your agent confirms:
 - [ ] All MCP tool arguments match preview
 - [ ] Options approval level sufficient
 - [ ] Stock held for covered structures (via position tools)
-- [ ] Paper mode proven from `ALPACA_PAPER_TRADE` (Step 1)
 - [ ] `options_buying_power` sufficient
 - [ ] Relevant education modules covered (or waived)
 
@@ -158,6 +180,14 @@ Your agent **must** call `GetDynamicTools` before every session. Tool names and 
 
 ## 4 — Workflow
 
+### Phase 0: Environment and namespace selection (every session)
+
+```
+GetDynamicTools { "pattern": "alpaca" }
+```
+
+Ask the user "paper or live?" If more than one Alpaca-like namespace is returned, list them and ask which to use. If only one exists, confirm in Phase 3 that it matches.
+
 ### Phase 1: Strategy confirmation
 
 Map intent to one of 25 strategies. Restate outlook and max loss. Wait for your confirmation.
@@ -166,14 +196,13 @@ Map intent to one of 25 strategies. Restate outlook and max loss. Wait for your 
 
 Relevant **Part III** modules for new users or short premium.
 
-### Phase 3: MCP discovery and paper verification
+### Phase 3: Tool discovery and account verification
 
 ```
-GetDynamicTools { "pattern": "alpaca" }
-GetDynamicTools { "namespace": "<id>", "toolName": "place_option_order" }
+GetDynamicTools { "namespace": "<chosen-id>", "toolName": "place_option_order" }
 ```
 
-Prove paper mode from `ALPACA_PAPER_TRADE` (§0 Step 1), extracting only that field — the same `env` block holds the API keys:
+Classify environment from `ALPACA_PAPER_TRADE` for the chosen server entry (§0 Step 2), extracting only that field — the same `env` block holds the API keys:
 
 ```bash
 jq -r '.mcpServers | keys[]' ~/.cursor/mcp.json
@@ -181,11 +210,11 @@ jq -r '.mcpServers | has("<server-name>")' ~/.cursor/mcp.json
 jq -r '.mcpServers["<server-name>"].env.ALPACA_PAPER_TRADE // "unset"' ~/.cursor/mcp.json
 ```
 
-Substitute the host's own config path when it is not Cursor. `unset` passes only when the entry was confirmed to exist; a missing entry or unparseable config is inconclusive and fails closed. The server lowercases the value and accepts exactly `true`, `1`, or `yes` as paper — any other value selects live.
+Substitute the host's own config path when it is not Cursor. `unset` (absent) classifies as paper only when the entry was confirmed to exist; a missing entry or unparseable config is inconclusive and fails closed. The server lowercases the value and accepts exactly `true`, `1`, or `yes` as paper — any other value selects live.
 
-Then call the account tool (`get_account_info` as of v2). Verify `status` = `ACTIVE`, `trading_blocked` = false, `options_trading_level` (the effective level) ≥ strategy need, and adequate `options_buying_power`. The account response never proves paper on its own — live and paper accounts return the same shape.
+Then call the account tool (`get_account_info` as of v2). Verify `status` = `ACTIVE`, `trading_blocked` = false, `options_trading_level` (the effective level) ≥ strategy need, and adequate `options_buying_power`. The account response never proves environment on its own — live and paper accounts return the same shape.
 
-**STOP** if paper mode cannot be proven.
+**STOP** if the classified environment does not match what the user asked for in Phase 0.
 
 ### Phase 4: Research
 
@@ -198,11 +227,11 @@ Do not use web search for quotes when MCP option tools are available.
 
 ### Phase 5: Order preview
 
-Build exact `place_option_order` arguments from the discovered tool schema, not from the REST body — the tool reshapes it. Show preview table and `confirmation_mode`. If `on`, ask **Submit? (yes / no)**. If `off`, invoke after preview.
+Build exact `place_option_order` arguments from the discovered tool schema, not from the REST body — the tool reshapes it. Show preview table (namespace, `PAPER`/`LIVE`, legs, max loss) and `confirmation_mode`. On **paper**: if `on`, ask **Submit? (yes / no)**; if `off`, invoke after preview. On **live**: always show the real-money warning and require the user to type the literal word `LIVE` — `confirmation_mode` does not change this.
 
 ### Phase 6: Submit and monitor
 
-Call `place_option_order` after your yes (or after the preview when `confirmation_mode` is `off`). Monitor with order/position tools (`get_order_by_id`, `get_all_positions` as of v2).
+Call `place_option_order` after your yes (paper) or typed `LIVE` (live). Monitor with order/position tools (`get_order_by_id`, `get_all_positions` as of v2) on the same namespace verified in Phase 3.
 
 ---
 
@@ -223,12 +252,13 @@ MCP responses are not auto-saved — your agent writes `orders.json` explicitly.
 
 ## 6 — Execution rules
 
-1. **Discover tools first** — never hard-code tool names
-2. **Paper only** — prove `ALPACA_PAPER_TRADE` before every submit
-3. **No HTTP/CLI fallback** when MCP is healthy
-4. **25 strategies only**
-5. **No financial advice**
-6. **Re-discover on schema errors**
+1. **Environment and namespace first** — ask paper or live, discover Alpaca-like namespaces with `GetDynamicTools`, let the user pick when more than one exists
+2. **Discover tools first** — never hard-code tool names
+3. **No default environment** — never assume paper; verify every session that the chosen namespace's `ALPACA_PAPER_TRADE` matches stated intent
+4. **No HTTP/CLI fallback** when MCP is healthy
+5. **25 strategies only**
+6. **No financial advice**
+7. **Re-discover on schema errors**
 
 ---
 
@@ -240,16 +270,19 @@ Before every submit, re-run the strategy confirmation checklist in §2 and the *
 
 ## 8 — Disclosures, safety, and data handling
 
-> Options involve significant risk and are not suitable for all investors. Read the [Options Disclosure Document](https://www.theocc.com/company-information/documents-and-archives/options-disclosure-document). Paper trading is simulated. This material is not investment advice. Review [Alpaca disclosures](https://alpaca.markets/disclosures).
+> Options involve significant risk and are not suitable for all investors. Read the [Options Disclosure Document](https://www.theocc.com/company-information/documents-and-archives/options-disclosure-document). Paper trading is simulated and may not reflect live fills, fees, or liquidity. **Live trading risks real money** — losses can exceed the premium paid on short-option positions. This material is not investment advice. Review [Alpaca disclosures](https://alpaca.markets/disclosures).
 
-Never pass API keys as tool arguments. Session artifacts stay on your local filesystem.
+Never pass API keys as tool arguments. Session artifacts stay on your local filesystem. Repeat the live-specific warning on every live preview.
 
 ---
 
 ## 9 — Anti-patterns
 
-- **NEVER** use account data or preview an order without showing the full `account_number` and `PAPER`
-- **NEVER** treat an account response as proof of paper mode, or read the MCP config wholesale to check `ALPACA_PAPER_TRADE`
+- **NEVER** assume paper (or live) — ask which environment the session uses before any account call
+- **NEVER** auto-select an Alpaca MCP namespace when more than one is discovered — list them and let the user choose
+- **NEVER** proceed on a namespace whose `ALPACA_PAPER_TRADE` disagrees with the user's stated environment
+- **NEVER** use account data or preview an order without showing the full `account_number` and whether the server is `PAPER` or `LIVE`
+- **NEVER** treat an account response as proof of environment, or read the MCP config wholesale to check `ALPACA_PAPER_TRADE`
 - **NEVER** recommend a specific trade or invoke order MCP tools before the user selects a structure and sets execute intent
 - **NEVER** shortlist fewer than 2 catalog structures when matching an outlook (unless only one valid after exclusions)
 - **NEVER** ask the user for holdings before attempting an Alpaca position tool
@@ -257,9 +290,10 @@ Never pass API keys as tool arguments. Session artifacts stay on your local file
 - **NEVER** silently skip event checks when the MCP server lacks the required tool
 - **NEVER** hard-code MCP tool names without `GetDynamicTools`
 - **NEVER** pass API keys as tool arguments
-- **NEVER** submit unless paper mode is proven — this skill does not trade live
+- **NEVER** accept "yes" (or anything other than the literal word `LIVE`) as sufficient to submit a live order
+- **NEVER** let `confirmation_mode: off` bypass the typed `LIVE` confirmation on a live namespace
 - **NEVER** skip the order preview
-- **NEVER** skip submit confirmation when `confirmation_mode` is `on`
+- **NEVER** skip submit confirmation when `confirmation_mode` is `on` (paper)
 - **NEVER** automate excluded strategies
 - **NEVER** use `required_permissions: ["all"]` for MCP calls
 - **NEVER** fall back to CLI/HTTP when MCP is the chosen execution path
@@ -272,7 +306,7 @@ Never pass API keys as tool arguments. Session artifacts stay on your local file
 
 | Part | Section | Contents |
 |---|---|---|
-| **I** | §0–§9 above | MCP workflow, tool discovery, paper verification |
+| **I** | §0–§9 above | MCP workflow, namespace/environment selection, tool discovery |
 | **II** | Strategy Catalog | All 25 strategies |
 | **III** | Education Modules | Modules A–K |
 | **IV** | Payoff Calculator | Breakeven engine (#1–25) |
@@ -284,7 +318,7 @@ Never pass API keys as tool arguments. Session artifacts stay on your local file
 | Skill | Description |
 |---|---|
 | `alpaca-trading-options-trading-cli` | CLI execution version |
-| `alpaca-trading-paper-trading-mcp` | Generic paper trading via MCP; source of the paper gate |
+| `alpaca-trading-paper-trading-mcp` | Dedicated paper-only equity/crypto MCP workflow — hard-blocks live |
 | `alpaca-trading-backtest` | Historical signals |
 
 ---
@@ -785,12 +819,12 @@ Always include before order placement:
 
 **Cover:**
 
-1. **Account identity** — before using the account, prove paper mode (§0 Step 1) and show the full `account_number` with `PAPER`. Repeat both in every order preview.
-2. **Paper enablement** — options enabled by default on paper accounts.
+1. **Choose the environment first** — your agent asks paper or live before any account call; it does not default to paper. It discovers Alpaca-like namespaces with `GetDynamicTools`, lets you pick when more than one exists, classifies `PAPER`/`LIVE` from that entry's `ALPACA_PAPER_TRADE` (single-field extraction), and shows the full `account_number` with the classification. Repeat both in every order preview. Stop on a mismatch between stated and verified environment.
+2. **Options enablement** — options enabled by default on paper accounts; live accounts need dashboard approval.
 3. **Buying power** — check `options_buying_power` (and `buying_power`) before debits and CSPs.
 4. **Contracts API defaults** — omitting `expiration_date_lte` returns only through **next weekend**; set explicit date range.
 5. **GTC orders** — supported; warn about cross-session fills when you choose `gtc`.
-6. **Confirmation mode** — `on` (default) requires yes after preview; `off` auto-submits after preview. Both are paper-only.
+6. **Confirmation mode** — on **paper**, `on` (default) requires yes after preview and `off` auto-submits after preview. On **live**, submission always requires the user to type the literal word `LIVE` in the preview — `confirmation_mode` has no effect on live.
 7. **Structure vs execute** — shortlist **≥2–3** catalog structures from outlook; **you select** before any order preview (compliance — not investment advice).
 8. **Automatic holdings context** — query Alpaca positions before shortlisting. A failed query means “unknown,” not “no shares.”
 9. **Automatic event context** — query Corporate Actions through target expiry for dividends, splits, mergers, and related events; search Alpaca News for earnings/catalyst mentions.
@@ -808,7 +842,7 @@ Always include before order placement:
 |------|---------------------|
 | **Research / learn** | Teach modules A–K; no orders |
 | **Structure** | Ask outlook → shortlist **≥2–3** strategies from catalog; **you select**; optional Part IV payoff — **no order preview** |
-| **Execute** | Full workflow after **your** structure selection + the paper gate in §0 Step 1; `confirmation_mode` controls auto-submit after preview |
+| **Execute** | Full workflow after **your** structure selection + environment/namespace verification in §0 Steps 1–2; paper uses `confirmation_mode`, live always requires typed `LIVE` |
 
 If you skip education modules on your first session, your agent offers a one-paragraph summary of max loss and assignment risk before preview.
 
@@ -1410,7 +1444,26 @@ When comparing strategies with **different DTE profiles**, state the assumption 
 
 Assume tools discovered via `GetDynamicTools`. Names below are **illustrative**.
 
-**Pattern:** Ask outlook → shortlist **≥2–3** structures → **user selects** → MCP order tools only when asked.
+**Pattern:** Ask paper or live → pick namespace (if multiple) → ask outlook → shortlist **≥2–3** structures → **user selects** → MCP order tools only when asked.
+
+---
+
+## Example -1 — Choosing paper vs live with multiple MCP server entries
+
+**User:** Help me trade options on AAPL.
+
+**Agent:**
+
+1. Ask: "Paper or live trading for this session?"
+2. Discover namespaces:
+
+```
+GetDynamicTools { "pattern": "alpaca" }
+```
+
+3. If more than one namespace is returned (e.g., `alpaca-paper` and `alpaca-live`), list them and ask which to use. If only one exists, note which environment it is wired to.
+4. Read **only** `env.ALPACA_PAPER_TRADE` for the chosen server entry (single-field extraction — see §0 Step 2). Classify `PAPER` or `LIVE`.
+5. Call the account tool; show full `account_number` and classification. **STOP** if it disagrees with Step 1.
 
 ---
 
@@ -1418,19 +1471,20 @@ Assume tools discovered via `GetDynamicTools`. Names below are **illustrative**.
 
 **User:** Ideas for options on AAPL?
 
-**Agent:** Ask only for direction, DTE, and max loss. Discover and call Alpaca position, Corporate Actions, and News tools before shortlisting. If event tools are unavailable, disclose the gap; never silently assume no events. Label news-derived dates unconfirmed. Shortlist ≥2 catalog structures from **Part V**. Do **not** call `place_option_order` until user selects a structure and requests execution.
+**Agent:** After Example -1 environment/namespace selection: ask only for direction, DTE, and max loss. Discover and call Alpaca position, Corporate Actions, and News tools before shortlisting. If event tools are unavailable, disclose the gap; never silently assume no events. Label news-derived dates unconfirmed. Shortlist ≥2 catalog structures from **Part V**. Do **not** call `place_option_order` until user selects a structure and requests execution.
 
 ---
 
-## Example 1 — Discover and verify paper
+## Example 1 — Discover and verify the chosen environment
 
 ```
 GetDynamicTools pattern: "alpaca"
-Read env.ALPACA_PAPER_TRADE only, for the matching server entry (see §0 Step 1)
+# user picks namespace if multiple
+Read env.ALPACA_PAPER_TRADE only, for the matching server entry (see §0 Step 2)
 CallDynamicTool get_account_info
 ```
 
-Agent proves paper mode from the config flag, then verifies `options_trading_level >= 3` for iron condor.
+Agent classifies `PAPER` or `LIVE` from the config flag, confirms it matches the user's stated intent, then verifies `options_trading_level >= 3` for iron condor.
 
 ---
 
@@ -1438,13 +1492,15 @@ Agent proves paper mode from the config flag, then verifies `options_trading_lev
 
 **User:** Neutral SPY — what structures fit? *(Agent shortlists ≥2.)* **User:** Paper iron condor (#17).
 
-1. Confirm user selected strategy #17 from **Part II**.
+1. Confirm user selected strategy #17 from **Part II** and re-verify the namespace is paper.
 2. `get_option_chain` for SPY with target expiration.
 3. `get_option_snapshot` on four candidate OCC symbols.
 4. Preview:
 
 ```
 Strategy: Iron Condor SPY
+Namespace: alpaca-paper
+Environment: PAPER
 Units: 1
 Net limit: $1.80 credit
 Max loss: $320
@@ -1452,7 +1508,7 @@ Tool: place_option_order
 Legs: [4 legs with intents]
 ```
 
-5. If `confirmation_mode: on`, user confirms yes; if `off`, skip prompt.
+5. If paper and `confirmation_mode: on`, user confirms yes; if paper and `off`, skip prompt. If live, require typed `LIVE`.
 6. `CallDynamicTool place_option_order` with confirmed payload.
 7. `get_order_by_id` with returned id.
 
@@ -1492,15 +1548,27 @@ Warn on dividends (education Module C).
 
 If `GetDynamicTools` returns no alpaca namespace:
 
-> Alpaca MCP server not configured. Install per https://github.com/alpacahq/alpaca-mcp-server with `ALPACA_PAPER_TRADE` set to `true`. Alternatively use `alpaca-trading-options-trading-cli`.
+> Alpaca MCP server not configured. Install per https://github.com/alpacahq/alpaca-mcp-server with a paper and/or live entry (`ALPACA_PAPER_TRADE` `true` or `false`). Alternatively use `alpaca-trading-options-trading-cli`.
 
 Do not fall back to curl in this skill.
 
-
 ---
 
-## Example 7 — `confirmation_mode: off`
+## Example 7 — `confirmation_mode: off` on paper
 
 **User:** Execute the previewed iron condor on paper without asking yes/no.
 
-**Agent:** Prove paper mode → preview with `confirmation_mode: off` → `place_option_order` → `get_order_by_id`.
+**Agent:** Confirm paper via `ALPACA_PAPER_TRADE` → preview with `confirmation_mode: off` → `place_option_order` → `get_order_by_id`.
+
+---
+
+## Example 8 — Live order requires typing `LIVE`, even with `confirmation_mode: off`
+
+**User:** Live trade the previewed iron condor. Don't ask me to confirm — `confirmation_mode: off`.
+
+**Agent:**
+
+1. Confirm the chosen namespace's `ALPACA_PAPER_TRADE` classifies as live.
+2. Show preview with real-money warning, namespace, `LIVE`, and max loss.
+3. User replies "yes" → **reject**. Require the literal word `LIVE`.
+4. User types `LIVE` → `place_option_order`. `confirmation_mode: off` does not skip this gate.
