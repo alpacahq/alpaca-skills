@@ -20,7 +20,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.11.18"
 
       - name: Run skill validator
         run: python3 scripts/validate_skills.py
