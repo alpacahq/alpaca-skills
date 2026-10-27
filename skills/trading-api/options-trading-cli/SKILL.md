@@ -217,6 +217,7 @@ On 0DTE, Greek fields may be null when \(T - t \to 0\); use quotes from chain ou
 **Single-leg:**
 
 ```bash
+CLIENT_ORDER_ID="$(uuidgen)"  # once per logical order; reuse on dry-run, submit, and retry
 alpaca order submit \
   --symbol AAPL250919C00210000 \
   --qty 1 \
@@ -225,23 +226,24 @@ alpaca order submit \
   --limit-price 3.50 \
   --time-in-force day \
   --position-intent buy_to_open \
-  --client-order-id "$(uuidgen)"
+  --client-order-id "$CLIENT_ORDER_ID"
 ```
 
 **Multi-leg (`mleg`):**
 
 ```bash
+CLIENT_ORDER_ID="$(uuidgen)"  # once per logical order; reuse on dry-run, submit, and retry
 alpaca order submit \
   --order-class mleg \
   --qty 1 \
   --type limit \
   --limit-price 0.95 \
   --time-in-force day \
-  --client-order-id "$(uuidgen)" \
+  --client-order-id "$CLIENT_ORDER_ID" \
   --legs '[ ... ]'
 ```
 
-Run the exact command with `--dry-run` first and show its request body in the preview. Show full preview table (profile, `PAPER`/`LIVE`, legs, limit, max loss), exact command, and `confirmation_mode`. On **paper**: if `on`, ask **Submit? (yes / no)**; if `off`, run after preview. On **live**: always show the real-money warning and ask the user to type the literal word `LIVE` — `confirmation_mode` does not change this.
+Set `CLIENT_ORDER_ID` once per logical order. Run the exact command with `--dry-run` first, reusing that same id, and show its request body in the preview. Show full preview table (profile, `PAPER`/`LIVE`, legs, limit, max loss), exact command, and `confirmation_mode`. On **paper**: if `on`, ask **Submit? (yes / no)**; if `off`, run after preview. On **live**: always show the real-money warning and ask the user to type the literal word `LIVE` — `confirmation_mode` does not change this.
 
 ### Phase 6: Submit and monitor
 
@@ -647,7 +649,7 @@ All verticals: same expiration, different strikes, 2-leg `mleg`.
 |-------|--------|
 | **Structure** | Long stock (underwater) + buy 1 ATM call + sell 2 OTM calls |
 | **Outlook** | Recover basis without adding cash to stock |
-| **Alpaca** | Stock + 3-leg `mleg`; L3 |
+| **Alpaca** | Stock already held + 2-leg `mleg`, `ratio_qty` 1 and 2; L3 |
 | **Where it breaks** | Rally through upper strikes; short call assignment |
 
 ---
@@ -827,9 +829,9 @@ A null Greek does not imply zero delta. Use **quotes**, **intrinsic value**, and
 
 1. **Call backspread** — sell 1 lower-strike call, buy 2+ higher-strike calls (ratio 1:2 in this catalog). Defined-risk convex bullish play; opposite of a ratio spread (which is excluded).
 2. **Put backspread** — sell 1 higher-strike put, buy 2 lower-strike puts. Defined-risk convex bearish play.
-3. **Stock repair** — long underwater stock + buy 1 ATM call + sell 2 OTM calls. Attempts to recover basis without adding cash to the stock; max outcome capped by short calls.
+3. **Stock repair** — long underwater stock + buy 1 ATM call + sell 2 OTM calls. Attempts to recover basis without adding cash to the stock; max outcome capped by short calls. That is **two option legs** (`ratio_qty` 1 and 2) on stock already held — not a three-leg order.
 
-**Your agent should:** Map these to `mleg` with simplified ratios (GCD = 1); show max loss before submit. For stock repair, verify stock is already held.
+**Your agent should:** Map backspreads and stock repair to a 2-leg `mleg` with simplified ratios (GCD = 1); show max loss before submit. For stock repair, verify stock is already held and do not add the shares as an option leg.
 
 ---
 
@@ -1030,7 +1032,18 @@ Net option flow per share: \(N = D_{pL} - C_c - C_{pS}\) (adjust signs if net cr
 |--------|---------------------|
 | **Max loss @ expiry** | \(B + N - (K_{pL} - K_{pS})\) at \(S = 0\). Loss is floored at \(B - K_{pL} + N\) only between \(K_{pS}\) and \(K_{pL}\); below \(K_{pS}\) it grows again |
 | **Max gain @ expiry** | \(K_c - B - N\) |
-| **Breakeven @ expiry** | \(B + N\) (approximate; verify with payoff table) |
+| **Breakeven @ expiry** | Solve per region below. \(B + N\) is a root **only** when \(K_{pL} \le B + N \le K_c\). If no region contains a root, report **no breakeven** |
+
+**Expiry P&L / share** (\(K_{pS} < K_{pL} < K_c\); keep a root only inside its region):
+
+| Region | P&L / share | Root |
+|--------|-------------|------|
+| \(S < K_{pS}\) | \(S - B + (K_{pL} - K_{pS}) - N\) | \(B + N - (K_{pL} - K_{pS})\), keep if \(< K_{pS}\) |
+| \(K_{pS} \le S < K_{pL}\) | flat \(K_{pL} - B - N\) | the whole segment, only if this equals 0 |
+| \(K_{pL} \le S \le K_c\) | \(S - B - N\) | \(B + N\), keep if inside the segment |
+| \(S > K_c\) | flat \(K_c - B - N\) | the whole region, only if this equals 0 |
+
+Example: basis \(80\), long put \(95\), short put \(90\), short call \(110\), \(N = 0\). \(B + N = 80\) is below \(K_{pL}\), so it is not a breakeven (P&L there is \(+5\)). The root in \(S < K_{pS}\) is \(75\).
 
 **Your agent must** build a 5+ row payoff table — piecewise between \(K_{pS}\), \(K_{pL}\), \(K_c\).
 
@@ -1120,9 +1133,11 @@ Buy \(K_2\) put, sell \(K_1\) put, net debit \(D\)
 
 ### #14 — Diagonal spread
 
-**Inputs:** Long far leg (\(K_l\), \(D_l\)), short near leg (\(K_s\), \(C_s\)); net \(N = D_l - C_s\)
+**Inputs:** Long far leg (\(K_l\), \(D_l\)), short near leg (\(K_s\), \(C_s\)); net \(N = D_l - C_s\) (positive = net debit)
 
-Same as calendar: **multi-expiry** — run payoff table at **near expiry** with stated assumptions for the remaining long leg (mark at intrinsic or quote).
+Same as calendar: **multi-expiry** — run a payoff table at **near expiry** and say whether the remaining long leg is marked at intrinsic or at a quote.
+
+**Near-expiry loss bound** with the long marked at intrinsic. Calls: \(N\) when \(K_s \ge K_l\); \(N + (K_l - K_s)\) when the short strike is below the long strike. Puts: \(N\) when \(K_s \le K_l\); \(N + (K_s - K_l)\) when the short strike is above the long strike. Do **not** quote \(\approx N\) unless the short strike is at or beyond the long strike. A long 110 call at $5 and a short 100 call at $3 has \(N = 2\) but about **$12**/share of intrinsic loss at $110.
 
 ---
 
@@ -1131,7 +1146,7 @@ Same as calendar: **multi-expiry** — run payoff table at **near expiry** with 
 **Inputs:** Strike \(K\), total debit \(D = D_{\text{call}} + D_{\text{put}}\)
 
 | Max loss | \(D\) (at \(S = K\)) |
-| Max profit | Unlimited both tails |
+| Max profit | Unlimited upside; downside capped at \(K - D\) (price cannot fall below 0) |
 | **Breakeven up** | \(K + D\) |
 | **Breakeven down** | \(K - D\) |
 
@@ -1288,7 +1303,7 @@ Let net entry = \(D\) if debit, or treat credit as negative \(D\).
 | 11 | Bull put | \(W-C\) | \(K_2-C\) |
 | 12 | Bear put | \(D\) | \(K_2-D\) |
 | 13 | Calendar | \(\approx D\) | Table |
-| 14 | Diagonal | \(\approx N\) | Table |
+| 14 | Diagonal | \(N\), or \(N\) + strike gap if the short strike is inside the long | Table |
 | 15 | Long straddle | \(D\) | \(K \pm D\) |
 | 16 | Long strangle | \(D\) | \(K_p-D\), \(K_c+D\) |
 | 17 | Iron condor | \(W-C\) | \(K_{p2}-C\), \(K_{c1}+C\) |
@@ -1377,16 +1392,16 @@ Typical DTE is guidance only — you choose expirations. Max profit/loss summari
 | 4 | CSP | Bull–neutral | 30–45 | Credit | Premium | Strike − prem | 1 | No* | L1 | 1 |
 | 5 | Protective put | Bull + floor | 30–180 | Debit | Unlimited | Floored | 1 | Yes | L2 | 1 opt |
 | 6 | Collar | Protect + cap | 30–90 | Mixed | Capped @ call | Floored @ put | 1 | Yes | L3 | 2 opt |
-| 7 | Put spread collar | Cheaper protect | 30–90 | Mixed | Capped | Floored, then stock ↓ below short put | 1 | Yes | L3 | 3 opt |
+| 7 | Put spread collar | Cheaper protect | 30–90 | Mixed | Capped | Floored, then stock ↓ below short put | Table | Yes | L3 | 3 opt |
 | 8 | Covered strangle | Neutral income | 30–45 | Credit | Capped @ call | Stock + put ↓ | 1 | Yes | L3 | 2 opt |
 | 9 | Bull call spread | Mod bull | 30–60 | Debit | Width − debit | Debit | 1 | No | L3 | 2 |
 | 10 | Bear call spread | Bear–neutral | 30–45 | Credit | Credit | Width − credit | 1 | No | L3 | 2 |
 | 11 | Bull put spread | Bull–neutral | 30–45 | Credit | Credit | Width − credit | 1 | No | L3 | 2 |
 | 12 | Bear put spread | Bearish | 30–60 | Debit | Width − debit | Debit | 1 | No | L3 | 2 |
 | 13 | Long calendar | Neutral near | Near + far | Debit | Variable | ≈ debit | Table | No | L3 | 2 |
-| 14 | Diagonal | Mild bias | Near + far | Mixed | Variable | ≈ net debit | Table | No | L3 | 2 |
-| 15 | Long straddle | Vol ↑ | 7–45 | Debit | Unlimited tails | Total prem | 2 | No | L3 | 2 |
-| 16 | Long strangle | Vol ↑ cheap | 7–45 | Debit | Unlimited tails | Total prem | 2 | No | L3 | 2 |
+| 14 | Diagonal | Mild bias | Near + far | Mixed | Variable | \(N\), plus strike gap if inverted | Table | No | L3 | 2 |
+| 15 | Long straddle | Vol ↑ | 7–45 | Debit | Unlimited ↑; ↓ capped at \(K - D\) | Total prem | 2 | No | L3 | 2 |
+| 16 | Long strangle | Vol ↑ cheap | 7–45 | Debit | Unlimited ↑; ↓ capped at \(K_p - D\) | Total prem | 2 | No | L3 | 2 |
 | 17 | Iron condor | Range | 30–45 | Credit | Credit | Wing − credit | 2 | No | L3 | 4 |
 | 18 | Iron butterfly | Pin | 30–45 | Credit | Credit | Wing − credit | 2 | No | L3 | 4 |
 | 19 | Long call fly | Pin (calls) | 30–45 | Debit | Wing − debit | Debit | 2 | No | L3 | 3 |
@@ -1395,7 +1410,7 @@ Typical DTE is guidance only — you choose expirations. Max profit/loss summari
 | 22 | PMCC | Bull LEAP | LEAP + short | Mixed | Capped | LEAP cost | Table | No | L2+ | 2 |
 | 23 | Call backspread | Convex bull | 45–90 | Debit/cred | Unlimited ↑ | Zone loss | 1–2 | No | L3 | 2 |
 | 24 | Put backspread | Convex bear | 45–90 | Debit/cred | Large ↓ | Zone loss | 1–2 | No | L3 | 2 |
-| 25 | Stock repair | Repair basis | 60–180 | Mixed | Capped ↑ | Tail ↓ | Table | Yes | L3 | 3 opt |
+| 25 | Stock repair | Repair basis | 60–180 | Mixed | Capped ↑ | Tail ↓ | Table | Yes | L3 | 2 opt |
 
 \*CSP requires cash to secure assignment.
 
@@ -1546,6 +1561,7 @@ alpaca order submit --order-class mleg --qty 1 --type limit --limit-price 1.80 -
 ## Example 3 — Cash-secured put (wheel step 1)
 
 ```bash
+CLIENT_ORDER_ID="$(uuidgen)"  # once per logical order; reuse on dry-run, submit, and retry
 alpaca order submit \
   --symbol AAPL251017P00210000 \
   --qty 1 \
@@ -1554,7 +1570,7 @@ alpaca order submit \
   --limit-price 3.20 \
   --time-in-force day \
   --position-intent sell_to_open \
-  --client-order-id "$(uuidgen)"
+  --client-order-id "$CLIENT_ORDER_ID"
 ```
 
 ---
@@ -1562,6 +1578,7 @@ alpaca order submit \
 ## Example 4 — Protective put (stock already held)
 
 ```bash
+CLIENT_ORDER_ID="$(uuidgen)"  # once per logical order; reuse on dry-run, submit, and retry
 alpaca position get --symbol-or-asset-id AAPL
 alpaca order submit \
   --symbol AAPL251017P00200000 \
@@ -1571,7 +1588,7 @@ alpaca order submit \
   --limit-price 2.50 \
   --time-in-force day \
   --position-intent buy_to_open \
-  --client-order-id "$(uuidgen)"
+  --client-order-id "$CLIENT_ORDER_ID"
 ```
 
 ---
@@ -1579,13 +1596,14 @@ alpaca order submit \
 ## Example 5 — Bull call spread
 
 ```bash
+CLIENT_ORDER_ID="$(uuidgen)"  # once per logical order; reuse on dry-run, submit, and retry
 alpaca order submit \
   --order-class mleg \
   --qty 1 \
   --type limit \
   --limit-price 0.95 \
   --time-in-force day \
-  --client-order-id "$(uuidgen)" \
+  --client-order-id "$CLIENT_ORDER_ID" \
   --legs '[
     {"symbol": "AAPL251017C00210000", "ratio_qty": "1", "side": "buy", "position_intent": "buy_to_open"},
     {"symbol": "AAPL251017C00220000", "ratio_qty": "1", "side": "sell", "position_intent": "sell_to_open"}
@@ -1722,7 +1740,8 @@ Alpaca has **no dedicated earnings-calendar endpoint**. Search News for earnings
 ```bash
 alpaca order submit --help
 
-# Buy to open — long call
+# Buy to open — long call. New id; reuse it for this order's --dry-run and submit.
+CLIENT_ORDER_ID="$(uuidgen)"
 alpaca order submit \
   --symbol AAPL250919C00210000 \
   --qty 1 \
@@ -1731,9 +1750,10 @@ alpaca order submit \
   --limit-price 4.25 \
   --time-in-force day \
   --position-intent buy_to_open \
-  --client-order-id "$(uuidgen)"
+  --client-order-id "$CLIENT_ORDER_ID"
 
-# Sell to open — cash-secured put
+# Sell to open — cash-secured put. Different order, so a new id.
+CLIENT_ORDER_ID="$(uuidgen)"
 alpaca order submit \
   --symbol AAPL250919P00200000 \
   --qty 1 \
@@ -1742,9 +1762,10 @@ alpaca order submit \
   --limit-price 2.10 \
   --time-in-force day \
   --position-intent sell_to_open \
-  --client-order-id "$(uuidgen)"
+  --client-order-id "$CLIENT_ORDER_ID"
 
-# Sell to close
+# Sell to close. Different order, so a new id.
+CLIENT_ORDER_ID="$(uuidgen)"
 alpaca order submit \
   --symbol AAPL250919C00210000 \
   --qty 1 \
@@ -1753,7 +1774,7 @@ alpaca order submit \
   --limit-price 5.00 \
   --time-in-force day \
   --position-intent sell_to_close \
-  --client-order-id "$(uuidgen)"
+  --client-order-id "$CLIENT_ORDER_ID"
 ```
 
 ---
@@ -1763,14 +1784,15 @@ alpaca order submit \
 `alpaca order submit --order-class mleg` takes the legs as a JSON array in `--legs` (up to 4). Omit `--symbol`, `--side`, and `--position-intent` at the top level — each leg carries its own. Add `--dry-run` to print the request body without submitting.
 
 ```bash
-# Iron condor (4 legs)
+# Iron condor (4 legs). New id; reuse it for this order's --dry-run and submit.
+CLIENT_ORDER_ID="$(uuidgen)"
 alpaca order submit \
   --order-class mleg \
   --qty 1 \
   --type limit \
   --limit-price 1.80 \
   --time-in-force day \
-  --client-order-id "ic-spy-cli-001" \
+  --client-order-id "$CLIENT_ORDER_ID" \
   --legs '[
     {"symbol": "SPY250919P00550000", "ratio_qty": "1", "side": "buy", "position_intent": "buy_to_open"},
     {"symbol": "SPY250919P00555000", "ratio_qty": "1", "side": "sell", "position_intent": "sell_to_open"},
@@ -1778,27 +1800,29 @@ alpaca order submit \
     {"symbol": "SPY250919C00570000", "ratio_qty": "1", "side": "buy", "position_intent": "buy_to_open"}
   ]'
 
-# Bull call spread (2 legs)
+# Bull call spread (2 legs). Different order, so a new id.
+CLIENT_ORDER_ID="$(uuidgen)"
 alpaca order submit \
   --order-class mleg \
   --qty 1 \
   --type limit \
   --limit-price 1.00 \
   --time-in-force day \
-  --client-order-id "$(uuidgen)" \
+  --client-order-id "$CLIENT_ORDER_ID" \
   --legs '[
     {"symbol": "AAPL250919C00190000", "ratio_qty": "1", "side": "buy", "position_intent": "buy_to_open"},
     {"symbol": "AAPL250919C00210000", "ratio_qty": "1", "side": "sell", "position_intent": "sell_to_open"}
   ]'
 
-# Long call butterfly (1:2:1)
+# Long call butterfly (1:2:1). Different order, so a new id.
+CLIENT_ORDER_ID="$(uuidgen)"
 alpaca order submit \
   --order-class mleg \
   --qty 1 \
   --type limit \
   --limit-price 0.45 \
   --time-in-force day \
-  --client-order-id "$(uuidgen)" \
+  --client-order-id "$CLIENT_ORDER_ID" \
   --legs '[
     {"symbol": "SPY250919C00560000", "ratio_qty": "1", "side": "buy", "position_intent": "buy_to_open"},
     {"symbol": "SPY250919C00565000", "ratio_qty": "2", "side": "sell", "position_intent": "sell_to_open"},
@@ -1851,8 +1875,11 @@ alpaca option contracts --underlying-symbols AAPL --expiration-date-gte 2026-09-
 
 ## Idempotency
 
-Always set `--client-order-id` on submissions. On failure, query before retry:
+Generate **one** client order id per logical order and reuse it for `--dry-run`, the real submit, and any recovery query. Calling `uuidgen` again on retry can duplicate the order if the first submit landed. Do not reuse a fixed example id for a different order.
 
 ```bash
-alpaca order get-by-client-id --client-order-id {uuid}
+CLIENT_ORDER_ID="$(uuidgen)"
+alpaca order submit ... --client-order-id "$CLIENT_ORDER_ID"
+# timeout or unknown result — query this id before any retry
+alpaca order get-by-client-id --client-order-id "$CLIENT_ORDER_ID"
 ```
