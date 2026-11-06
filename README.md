@@ -60,6 +60,8 @@ cp -r path/to/alpaca-skills/skills/trading-api/backtest .cursor/skills/alpaca-tr
 | `alpaca-trading-paper-trading` | [skills/trading-api/paper-trading/](skills/trading-api/paper-trading/) | Paper Trading | Trading API |
 | `alpaca-trading-paper-trading-cli` | [skills/trading-api/paper-trading-cli/](skills/trading-api/paper-trading-cli/) | Paper Trading (CLI) | Trading API |
 | `alpaca-trading-paper-trading-mcp` | [skills/trading-api/paper-trading-mcp/](skills/trading-api/paper-trading-mcp/) | Paper Trading (MCP Server) | Trading API |
+| `alpaca-trading-options-trading-cli` | [skills/trading-api/options-trading-cli/](skills/trading-api/options-trading-cli/) | Options Trading (CLI) | Trading API |
+| `alpaca-trading-options-trading-mcp` | [skills/trading-api/options-trading-mcp/](skills/trading-api/options-trading-mcp/) | Options Trading (MCP Server) | Trading API |
 | `alpaca-broker-integration` | [skills/broker-api/integration/](skills/broker-api/integration/) | Broker API Integration | Broker API |
 | `alpaca-broker-account-onboarding` | [skills/broker-api/account-onboarding/](skills/broker-api/account-onboarding/) | Account Onboarding & KYC | Broker API |
 | `alpaca-broker-funding-transfers` | [skills/broker-api/funding-transfers/](skills/broker-api/funding-transfers/) | Funding & Transfers | Broker API |
