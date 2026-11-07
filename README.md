@@ -60,6 +60,7 @@ cp -r path/to/alpaca-skills/skills/trading-api/backtest .cursor/skills/alpaca-tr
 | `alpaca-trading-paper-trading` | [skills/trading-api/paper-trading/](skills/trading-api/paper-trading/) | Paper Trading | Trading API |
 | `alpaca-trading-paper-trading-cli` | [skills/trading-api/paper-trading-cli/](skills/trading-api/paper-trading-cli/) | Paper Trading (CLI) | Trading API |
 | `alpaca-trading-paper-trading-mcp` | [skills/trading-api/paper-trading-mcp/](skills/trading-api/paper-trading-mcp/) | Paper Trading (MCP Server) | Trading API |
+| `alpaca-trading-signal-parity` | [skills/trading-api/signal-parity/](skills/trading-api/signal-parity/) | Signal Parity | Trading API |
 | `alpaca-broker-integration` | [skills/broker-api/integration/](skills/broker-api/integration/) | Broker API Integration | Broker API |
 | `alpaca-broker-account-onboarding` | [skills/broker-api/account-onboarding/](skills/broker-api/account-onboarding/) | Account Onboarding & KYC | Broker API |
 | `alpaca-broker-funding-transfers` | [skills/broker-api/funding-transfers/](skills/broker-api/funding-transfers/) | Funding & Transfers | Broker API |
