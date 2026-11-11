@@ -861,7 +861,7 @@ Deterministic **at-expiration** calculator for every strategy in the catalog (Pa
 
 1. Collect inputs from you or from chain quotes (strikes, net debit/credit per share, stock basis if needed).
 2. Look up the strategy section below (#1–25).
-3. Compute **max profit**, **max loss**, and **breakeven(s)** using the formulas.
+3. Compute **max profit**, **max loss**, and **breakeven(s)** using the formulas. A root is a breakeven only if it lies inside the price region where its formula applies and is \(\ge 0\). A negative max loss is a guaranteed minimum gain; a negative max profit is a guaranteed loss. In both cases, report **no breakeven**.
 4. Build an **expiry payoff table** (minimum 5 underlying prices — see template in §1).
 5. Show results in the order preview alongside legs and approval level.
 
@@ -941,9 +941,9 @@ Assume **1 unit = 100 shares** + option legs scaled 1:1 unless noted.
 
 | Metric | Formula (per share) | Notes |
 |--------|---------------------|-------|
-| **Max profit @ expiry** | \(K - B + C_c\) | When \(S \ge K\) |
-| **Max loss @ expiry** | \(B - C_c\) | When \(S = 0\) (stock loss partially offset by premium) |
-| **Breakeven @ expiry** | \(B - C_c\) | Stock + premium combined |
+| **Max profit @ expiry** | \(K - B + C_c\) | When \(S \ge K\). Negative when \(B - C_c > K\): the position loses at every price |
+| **Max loss @ expiry** | \(B - C_c\) | When \(S = 0\) (stock loss partially offset by premium). Negative when \(B < C_c\): the position gains at every price |
+| **Breakeven @ expiry** | \(B - C_c\) | Only when \(0 \le B - C_c \le K\); otherwise **no breakeven** |
 
 **Expiry P&L / share (100 shares):** \(\min(S, K) - B + C_c\)
 
@@ -969,11 +969,13 @@ Assume **1 unit = 100 shares** + option legs scaled 1:1 unless noted.
 
 | Metric | Formula (per share) |
 |--------|---------------------|
-| **Max loss @ expiry** | \(B - K_p + D_p\) |
+| **Max loss @ expiry** | \(B - K_p + D_p\) when \(S \le K_p\). If negative, it is a guaranteed minimum gain |
 | **Max profit** | Unlimited (\(S - B - D_p\) for large \(S\)) |
-| **Breakeven @ expiry** | \(B + D_p\) |
+| **Breakeven @ expiry** | \(B + D_p\) only when \(B + D_p \ge K_p\); otherwise **no breakeven** |
 
 **Expiry P&L / share:** \(S - B + \max(K_p - S, 0) - D_p\)
+
+Example (no breakeven): basis \(50\), long put \(95\) bought for \(2\). \(B + D_p = 52\) is below \(K_p\), so it is not a breakeven. P&L is at least \(95 - 50 - 2 = +43\) at every price.
 
 ---
 
@@ -983,9 +985,9 @@ Assume **1 unit = 100 shares** + option legs scaled 1:1 unless noted.
 
 | Metric | Formula (per share) |
 |--------|---------------------|
-| **Max loss @ expiry** | \(B - K_p + N\) |
-| **Max gain @ expiry** | \(K_c - B - N\) |
-| **Breakeven @ expiry** | \(B + N\) |
+| **Max loss @ expiry** | \(B - K_p + N\) when \(S \le K_p\). If negative, it is a guaranteed minimum gain |
+| **Max gain @ expiry** | \(K_c - B - N\) when \(S \ge K_c\). If negative, the position loses at every price |
+| **Breakeven @ expiry** | \(B + N\) only when \(K_p \le B + N \le K_c\). Below \(K_p\) the position profits at every price; above \(K_c\) it loses at every price. Either way, report **no breakeven** |
 
 **Expiry P&L / share:** \(\min(S, K_c) - B + \max(K_p - S, 0) - N\)
 
@@ -1030,7 +1032,7 @@ Example 2 (no breakeven): basis \(3\), long put \(95\), short put \(90\), short 
 |--------|---------------------|
 | **Max profit @ expiry** | \(K_c - B + C_{\text{tot}}\) when \(S \ge K_c\) |
 | **Max loss @ expiry** | \(B + K_p - C_{\text{tot}}\) at \(S = 0\) — the stock goes to zero and the short put is assigned, so below \(K_p\) losses accrue at twice the stock's rate |
-| **Breakeven** | One: \(B - C_{\text{tot}}\) when that is \(\ge K_p\); otherwise \((B + K_p - C_{\text{tot}})/2\). No upper breakeven — P&L is flat above \(K_c\) |
+| **Breakeven** | At most one: \(B - C_{\text{tot}}\) when \(K_p \le B - C_{\text{tot}} \le K_c\); otherwise \((B + K_p - C_{\text{tot}})/2\) when \(B - C_{\text{tot}} < K_p\) and that root is \(\ge 0\). If \(B - C_{\text{tot}} > K_c\), the position loses at every price: **no breakeven**. No upper breakeven — P&L is flat above \(K_c\) |
 
 **Expiry P&L / share:** \(\min(S, K_c) - B + C_{\text{tot}} - \max(K_p - S, 0)\)
 
