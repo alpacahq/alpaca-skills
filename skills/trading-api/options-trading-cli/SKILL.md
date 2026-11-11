@@ -2,8 +2,8 @@
 name: alpaca-trading-options-trading-cli
 description: >
   Research and structure defined-risk US options strategies on your Alpaca account
-  using the Alpaca CLI. Agent asks you to choose paper or live and pick the CLI
-  profile to authenticate with before any Alpaca call, asks investment outlook,
+  using the Alpaca CLI. Defaults to paper; live is opt-in on explicit request.
+  Agent picks the CLI profile with you before any Alpaca call, asks investment outlook,
   shortlists 2–3 catalog structures for user selection, then preview/submit via
   alpaca CLI when explicitly requested. Self-contained: strategy catalog,
   education, payoff, comparison, examples, CLI reference (Parts II–VII). Not
@@ -12,9 +12,9 @@ description: >
 
 # Alpaca Options Trading — CLI Version
 
-Use this skill when you want your AI agent to help you **explore** defined-risk US options strategies on Alpaca using the **`alpaca` CLI** — in **either paper or live**, your choice.
+Use this skill when you want your AI agent to help you **explore** defined-risk US options strategies on Alpaca using the **`alpaca` CLI** — on **paper by default**, or on **live only when you explicitly ask for it**.
 
-Your agent **asks whether this session is paper or live, and which CLI profile to use, before any Alpaca call**, then **asks your investment outlook first**, shortlists **≥2–3** catalog structures for **you to select**, and only runs CLI order commands when you **explicitly** request execution. It does **not** recommend a specific trade or open with an order ticket.
+Your agent **uses paper unless you explicitly ask for live, and confirms which CLI profile to use before any Alpaca call**, then **asks your investment outlook first**, shortlists **≥2–3** catalog structures for **you to select**, and only runs CLI order commands when you **explicitly** request execution. It does **not** recommend a specific trade or open with an order ticket.
 
 This skill is written for you, a Trading API user working with your own Alpaca account, CLI profile(s), and local workspace. Your agent executes all operations through the `alpaca` command-line tool, stays within the **25-strategy catalog** in **Part II**, and presents tradeoffs objectively — **not investment advice**.
 
@@ -26,9 +26,9 @@ This is the CLI-specific version. An MCP-server version is also available as a c
 
 ## 0 - How your AI agent should use this skill
 
-1. **Ask paper or live, then pick the CLI profile, before any other Alpaca call.** Ask: "Paper or live trading for this session?" Do not assume paper. Run `alpaca profile list --json` and show the available profiles. If more than one profile exists, ask the user which one to use — never pick silently, even if a profile name looks obviously right. If only one profile exists, confirm with the user that it's the one they want. Set the chosen profile as `ALPACA_PROFILE` for the session — **never** pass `-p`/`--profile` per command, since some commands honor it and others (like `alpaca doctor`) ignore it, which can make the check and the order resolve to different endpoints.
+1. **Default to paper, then pick the CLI profile, before any other Alpaca call.** The session environment is **paper** unless the user explicitly asks to trade live (for example, "use my live account"). Do not ask "paper or live?" up front, and never infer live from a profile name, an exported variable, or an account number. Run `alpaca profile list` and show the available profiles. If more than one profile exists, ask the user which one to use — never pick silently, even if a profile name looks obviously right. If only one profile exists, confirm with the user that it's the one they want. Set the chosen profile as `ALPACA_PROFILE` for the session — **never** pass `-p`/`--profile` per command, since some commands honor it and others (like `alpaca doctor`) ignore it, which can make the check and the order resolve to different endpoints.
 
-2. **Verify the chosen profile matches what the user asked for.** Run `alpaca doctor` and `alpaca account get --jq '.account_number'`. Show only the full `account_number` and **PAPER** or **LIVE**, classified from the `Trading:` line `alpaca doctor` reports (`https://paper-api.alpaca.markets` = paper; `https://api.alpaca.markets` = live) — not from the profile name alone, since a profile named "paper" can still resolve to live if `ALPACA_LIVE_TRADE` is set. If the resolved environment **disagrees** with what the user said in Step 1, **STOP** and surface the mismatch — do not proceed on either environment or let the user override by re-stating intent without fixing the profile. Repeat both facts in every order preview. Stop if `account_number` is missing. Do not display API keys, secrets, or credential variable names.
+2. **Verify the chosen profile matches the session environment** — paper by default, live only if the user explicitly asked for it. Run `alpaca doctor` and `alpaca account get --jq '.account_number'`. Show only the full `account_number` and **PAPER** or **LIVE**, classified from the `Trading:` line `alpaca doctor` reports (`https://paper-api.alpaca.markets` = paper; `https://api.alpaca.markets` = live) — not from the profile name alone, since a profile named "paper" can still resolve to live if `ALPACA_LIVE_TRADE` is set. If the resolved environment **disagrees** with the session environment, **STOP** and surface the mismatch — do not proceed on either environment or let the user override by re-stating intent without fixing the profile. A paper session that resolves to live never continues on live: the user must select a paper profile, or explicitly opt in to live and pick a profile that resolves to live. Repeat both facts in every order preview. Stop if `account_number` is missing. Do not display API keys, secrets, or credential variable names.
 
 3. **Ask subjective outlook first** if missing (underlying, direction, horizon, max loss budget). Do not ask the user to recall holdings or events when Alpaca CLI access is available.
 
@@ -80,11 +80,11 @@ go install github.com/alpacahq/cli/cmd/alpaca@latest
 
 ```bash
 alpaca profile login --api-key
-alpaca profile list --json
+alpaca profile list
 alpaca doctor
 ```
 
-Set up a profile for each environment you expect to use (e.g., one paper profile, one live profile). Your agent lists and picks between them at session start (§0 Step 1) — it does not assume there's only one.
+Set up a paper profile. Add a live profile only if you intend to opt in to live trading. Your agent lists the profiles and confirms which one to use at session start (§0 Step 1) — it does not assume there's only one.
 
 ### Runtime
 
@@ -104,7 +104,7 @@ Set up a profile for each environment you expect to use (e.g., one paper profile
 
 | Parameter | Description | Default | Required |
 |---|---|---|---|
-| `account_mode` | `paper` or `live` | **Ask if missing — no default** | Yes |
+| `account_mode` | `paper` or `live` | **`paper`** — `live` only on explicit user request | No |
 | `intent` | Research, structure, or execute | **`structure`** | Yes |
 | `strategy` | One of 25 from **Part II** | **You select** from shortlist | Yes (execute) |
 | `underlying` | e.g., `SPY`, `AAPL` | — | Yes (structure/execute) |
@@ -116,7 +116,7 @@ Set up a profile for each environment you expect to use (e.g., one paper profile
 | `position_intent` | Per leg | Inferred | Yes (options) |
 | `time_in_force` | `day`, `gtc` | `day` | Yes |
 | `confirmation_mode` | `on` = yes after preview; `off` = auto-submit after preview (paper only — live always requires typed `LIVE`) | `on` | No |
-| `profile` | CLI profile name | **User-selected** from `alpaca profile list --json` (§0 Step 1) | Yes |
+| `profile` | CLI profile name | **User-selected** from `alpaca profile list` (§0 Step 1) | Yes |
 
 ### Confirmation mode (`confirmation_mode`)
 
@@ -142,7 +142,7 @@ Wheel and multi-step workflows: each **order submit** follows this logic indepen
 
 Before building orders, your agent confirms:
 
-- [ ] You stated `paper` or `live`, picked a profile from `alpaca profile list --json`, and the verified `alpaca doctor` environment matches
+- [ ] Session is paper, or you explicitly opted in to live; you picked a profile from `alpaca profile list`, and the verified `alpaca doctor` environment matches
 - [ ] Full `account_number` and `PAPER` or `LIVE` shown before account-based results and in the preview
 - [ ] Holdings were queried from Alpaca; failed lookups are marked unknown
 - [ ] Corporate Actions + News were searched through target expiry
@@ -180,10 +180,10 @@ Your agent runs `alpaca order submit --help` before assuming flags. For `mleg`, 
 ### Phase 0: Environment and profile selection (every session)
 
 ```bash
-alpaca profile list --json
+alpaca profile list
 ```
 
-Ask the user "paper or live?" and which listed profile to use. Set `ALPACA_PROFILE` for the session (never `-p`/`--profile` per command).
+Use paper unless the user explicitly asked for live. Confirm which listed profile to use. Set `ALPACA_PROFILE` for the session (never `-p`/`--profile` per command).
 
 ### Phase 1: Strategy confirmation
 
@@ -278,10 +278,10 @@ Save every CLI stdout/stderr to `raw/`.
 
 ## 6 - Execution rules
 
-1. **Environment and profile first** — ask paper or live, list profiles with `alpaca profile list --json`, let the user pick, then show the full `account_number` and `PAPER` or `LIVE` before any other account result
+1. **Environment and profile first** — paper unless the user explicitly asked for live; list profiles with `alpaca profile list`, let the user pick, then show the full `account_number` and `PAPER` or `LIVE` before any other account result
 2. **Outlook first** — ask investment outlook; shortlist **≥2–3** structures; **user selects** before any CLI order command
 3. **No trade recommendations** — objective comparisons only; not investment advice
-4. **No default environment** — never assume paper; verify the chosen profile's resolved environment matches stated intent before every submission; never pass `-p`/`--profile`
+4. **Paper by default, live opt-in** — never switch to live without an explicit user request; verify the chosen profile's resolved environment matches the session environment before every submission; never pass `-p`/`--profile`
 5. **All commands** — `required_permissions: ["all"]`
 6. **Discover flags** — `--help` before assuming syntax
 7. **JSON output** — the CLI prints JSON by default; filter with `--jq`
@@ -309,7 +309,8 @@ Your agent includes this in sessions involving order placement, and repeats the 
 
 ## 9 - Anti-patterns
 
-- **NEVER** assume paper (or live) — ask which environment the session uses before any Alpaca call
+- **NEVER** switch to live without an explicit user request — the session is paper by default
+- **NEVER** ask "paper or live?" up front — paper is the default, and live is opt-in
 - **NEVER** auto-select a CLI profile when more than one is configured — list them and let the user choose
 - **NEVER** trust a profile's name as proof of environment — classify from `alpaca doctor`'s `Trading:` line
 - **NEVER** pass `-p`/`--profile` per command — set `ALPACA_PROFILE` once for the session so the check and the order resolve to the same endpoint
@@ -849,7 +850,7 @@ Always include before order placement:
 
 **Cover:**
 
-1. **Choose the environment first** — your agent asks paper or live before any Alpaca call; it does not default to paper. It then lists CLI profiles with `alpaca profile list --json`, lets you pick one, and shows the full `account_number` plus `PAPER` or `LIVE`, classified from `alpaca doctor`'s `Trading:` line. Repeat both in every order preview. Stop on a mismatch between stated and verified environment.
+1. **Paper by default** — the session is paper unless you explicitly ask for live; your agent never switches to live on its own. Before any Alpaca call it lists CLI profiles with `alpaca profile list`, lets you pick one, and shows the full `account_number` plus `PAPER` or `LIVE`, classified from `alpaca doctor`'s `Trading:` line. Repeat both in every order preview. Stop on a mismatch between the session and verified environment.
 2. **Options enablement** — options enabled by default on paper accounts; live accounts need dashboard approval.
 3. **Buying power** — check `options_buying_power` (and `buying_power`) before debits and CSPs.
 4. **Contracts API defaults** — omitting `expiration_date_lte` returns only through **next weekend**; set explicit date range.
@@ -1474,24 +1475,24 @@ When comparing strategies with **different DTE profiles**, state the assumption 
 
 CLI end-to-end patterns. Discover flags with `--help` on your installed version.
 
-**Pattern:** Ask paper or live → pick profile → ask outlook → shortlist **≥2–3** structures → **user selects** → CLI order commands only when asked.
+**Pattern:** Paper by default (live only on explicit request) → pick profile → ask outlook → shortlist **≥2–3** structures → **user selects** → CLI order commands only when asked.
 
 ---
 
-## Example -1 — Choosing paper vs live and picking a profile
+## Example -1 — Default paper session and picking a profile
 
 **User:** Help me trade options on AAPL.
 
 **Agent:**
 
-1. Ask: "Paper or live trading for this session?"
+1. Session environment is paper — the user did not ask for live, so the agent does not ask "paper or live?".
 2. List profiles:
 
 ```bash
-alpaca profile list --json
+alpaca profile list
 ```
 
-3. User picks a profile (e.g., `paper` after stating paper). Set `export ALPACA_PROFILE=paper` for the session — never `-p`/`--profile`.
+3. User confirms a profile (e.g., `paper`). Set `export ALPACA_PROFILE=paper` for the session — never `-p`/`--profile`.
 4. Verify:
 
 ```bash
@@ -1499,7 +1500,9 @@ alpaca doctor    # classify PAPER/LIVE from Trading: line
 alpaca account get --jq '.account_number'
 ```
 
-5. Show full `account_number` and `PAPER` or `LIVE`. **STOP** if the verified environment disagrees with Step 1.
+5. Show full `account_number` and `PAPER`. **STOP** if `alpaca doctor` resolves to live — ask the user to select a paper profile, or to say explicitly that they want live.
+
+**Opting in to live:** only when the user says so (for example, "use my live account"). The agent then lists profiles, the user picks one that resolves to `https://api.alpaca.markets`, and every live submit follows Example 7.
 
 ---
 
@@ -1634,17 +1637,17 @@ All commands require `required_permissions: ["all"]`. Output is JSON by default;
 
 ```bash
 alpaca version
-alpaca profile list --json
-# Ask paper or live; user picks a profile; then:
+alpaca profile list
+# Paper unless the user explicitly asked for live; user picks a profile; then:
 export ALPACA_PROFILE=<chosen-profile>   # never -p/--profile per command
-alpaca doctor    # classify PAPER/LIVE from Trading: line; must match stated intent
+alpaca doctor    # classify PAPER/LIVE from Trading: line; must match the session environment
 alpaca account get --jq '{account_number, status, buying_power, options_trading_level, options_buying_power, equity}'
 alpaca clock
 ```
 
 ### Profile & environment selection
 
-- List: `alpaca profile list --json`
+- List: `alpaca profile list`
 - Activate for the session: `export ALPACA_PROFILE=<name>` — **never** `-p`/`--profile` on individual commands (`alpaca doctor` ignores `-p`)
 - Classify environment from `alpaca doctor`'s `Trading:` line:
   - `https://paper-api.alpaca.markets` → `PAPER`
