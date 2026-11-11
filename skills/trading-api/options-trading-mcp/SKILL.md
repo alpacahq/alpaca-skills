@@ -618,7 +618,7 @@ All verticals: same expiration, different strikes, 2-leg `mleg`.
 |-------|--------|
 | **Structure** | Long stock (underwater) + buy 1 ATM call + sell 2 OTM calls |
 | **Outlook** | Recover basis without adding cash to stock |
-| **Alpaca** | Stock + 3-leg `mleg`; L3 |
+| **Alpaca** | Stock already held + 2-leg `mleg`, `ratio_qty` 1 and 2; L3 |
 | **Where it breaks** | Rally through upper strikes; short call assignment |
 
 ---
@@ -798,9 +798,9 @@ A null Greek does not imply zero delta. Use **quotes**, **intrinsic value**, and
 
 1. **Call backspread** — sell 1 lower-strike call, buy 2+ higher-strike calls (ratio 1:2 in this catalog). Defined-risk convex bullish play; opposite of a ratio spread (which is excluded).
 2. **Put backspread** — sell 1 higher-strike put, buy 2 lower-strike puts. Defined-risk convex bearish play.
-3. **Stock repair** — long underwater stock + buy 1 ATM call + sell 2 OTM calls. Attempts to recover basis without adding cash to the stock; max outcome capped by short calls.
+3. **Stock repair** — long underwater stock + buy 1 ATM call + sell 2 OTM calls. Attempts to recover basis without adding cash to the stock; max outcome capped by short calls. That is **two option legs** (`ratio_qty` 1 and 2) on stock already held — not a three-leg order.
 
-**Your agent should:** Map these to `mleg` with simplified ratios (GCD = 1); show max loss before submit. For stock repair, verify stock is already held.
+**Your agent should:** Map backspreads and stock repair to a 2-leg `mleg` with simplified ratios (GCD = 1); show max loss before submit. For stock repair, verify stock is already held and do not add the shares as an option leg.
 
 ---
 
@@ -861,7 +861,7 @@ Deterministic **at-expiration** calculator for every strategy in the catalog (Pa
 
 1. Collect inputs from you or from chain quotes (strikes, net debit/credit per share, stock basis if needed).
 2. Look up the strategy section below (#1–25).
-3. Compute **max profit**, **max loss**, and **breakeven(s)** using the formulas.
+3. Compute **max profit**, **max loss**, and **breakeven(s)** using the formulas. A root is a breakeven only if it lies inside the price region where its formula applies and is \(\ge 0\). A negative max loss is a guaranteed minimum gain; a negative max profit is a guaranteed loss. In both cases, report **no breakeven**.
 4. Build an **expiry payoff table** (minimum 5 underlying prices — see template in §1).
 5. Show results in the order preview alongside legs and approval level.
 
@@ -941,9 +941,9 @@ Assume **1 unit = 100 shares** + option legs scaled 1:1 unless noted.
 
 | Metric | Formula (per share) | Notes |
 |--------|---------------------|-------|
-| **Max profit @ expiry** | \(K - B + C_c\) | When \(S \ge K\) |
-| **Max loss @ expiry** | \(B - C_c\) | When \(S = 0\) (stock loss partially offset by premium) |
-| **Breakeven @ expiry** | \(B - C_c\) | Stock + premium combined |
+| **Max profit @ expiry** | \(K - B + C_c\) | When \(S \ge K\). Negative when \(B - C_c > K\): the position loses at every price |
+| **Max loss @ expiry** | \(B - C_c\) | When \(S = 0\) (stock loss partially offset by premium). Negative when \(B < C_c\): the position gains at every price |
+| **Breakeven @ expiry** | \(B - C_c\) | Only when \(0 \le B - C_c \le K\); otherwise **no breakeven** |
 
 **Expiry P&L / share (100 shares):** \(\min(S, K) - B + C_c\)
 
@@ -969,11 +969,13 @@ Assume **1 unit = 100 shares** + option legs scaled 1:1 unless noted.
 
 | Metric | Formula (per share) |
 |--------|---------------------|
-| **Max loss @ expiry** | \(B - K_p + D_p\) |
+| **Max loss @ expiry** | \(B - K_p + D_p\) when \(S \le K_p\). If negative, it is a guaranteed minimum gain |
 | **Max profit** | Unlimited (\(S - B - D_p\) for large \(S\)) |
-| **Breakeven @ expiry** | \(B + D_p\) |
+| **Breakeven @ expiry** | \(B + D_p\) only when \(B + D_p \ge K_p\); otherwise **no breakeven** |
 
 **Expiry P&L / share:** \(S - B + \max(K_p - S, 0) - D_p\)
+
+Example (no breakeven): basis \(50\), long put \(95\) bought for \(2\). \(B + D_p = 52\) is below \(K_p\), so it is not a breakeven. P&L is at least \(95 - 50 - 2 = +43\) at every price.
 
 ---
 
@@ -983,9 +985,9 @@ Assume **1 unit = 100 shares** + option legs scaled 1:1 unless noted.
 
 | Metric | Formula (per share) |
 |--------|---------------------|
-| **Max loss @ expiry** | \(B - K_p + N\) |
-| **Max gain @ expiry** | \(K_c - B - N\) |
-| **Breakeven @ expiry** | \(B + N\) |
+| **Max loss @ expiry** | \(B - K_p + N\) when \(S \le K_p\). If negative, it is a guaranteed minimum gain |
+| **Max gain @ expiry** | \(K_c - B - N\) when \(S \ge K_c\). If negative, the position loses at every price |
+| **Breakeven @ expiry** | \(B + N\) only when \(K_p \le B + N \le K_c\). Below \(K_p\) the position profits at every price; above \(K_c\) it loses at every price. Either way, report **no breakeven** |
 
 **Expiry P&L / share:** \(\min(S, K_c) - B + \max(K_p - S, 0) - N\)
 
@@ -1001,7 +1003,22 @@ Net option flow per share: \(N = D_{pL} - C_c - C_{pS}\) (adjust signs if net cr
 |--------|---------------------|
 | **Max loss @ expiry** | \(B + N - (K_{pL} - K_{pS})\) at \(S = 0\). Loss is floored at \(B - K_{pL} + N\) only between \(K_{pS}\) and \(K_{pL}\); below \(K_{pS}\) it grows again |
 | **Max gain @ expiry** | \(K_c - B - N\) |
-| **Breakeven @ expiry** | \(B + N\) (approximate; verify with payoff table) |
+| **Breakeven @ expiry** | Solve per region below. \(B + N\) is a root **only** when \(K_{pL} \le B + N \le K_c\). If no region contains a root, report **no breakeven** |
+
+**Expiry P&L / share** (\(K_{pS} < K_{pL} < K_c\); keep a root only if it is inside its region **and** \(\ge 0\) — stock price cannot go negative):
+
+| Region | P&L / share | Root |
+|--------|-------------|------|
+| \(S < K_{pS}\) | \(S - B + (K_{pL} - K_{pS}) - N\) | \(B + N - (K_{pL} - K_{pS})\), keep only if \(0 \le \text{root} < K_{pS}\) |
+| \(K_{pS} \le S < K_{pL}\) | flat \(K_{pL} - B - N\) | the whole segment, only if this equals 0 |
+| \(K_{pL} \le S \le K_c\) | \(S - B - N\) | \(B + N\), keep if inside the segment |
+| \(S > K_c\) | flat \(K_c - B - N\) | the whole region, only if this equals 0 |
+
+If the first-region root is negative, there is **no breakeven in that region** — check \(S = 0\) directly: if P&L at \(S=0\) is already positive, the position profits at every reachable price and has no breakeven at all.
+
+Example 1 (breakeven exists): basis \(80\), long put \(95\), short put \(90\), short call \(110\), \(N = 0\). \(B + N = 80\) is below \(K_{pL}\), so it is not a breakeven (P&L there is \(+5\)). The root in \(S < K_{pS}\) is \(75\), which is \(\ge 0\) — keep it.
+
+Example 2 (no breakeven): basis \(3\), long put \(95\), short put \(90\), short call \(110\), \(N = 0\). The first-region root is \(3 + 0 - (95-90) = -2\), which is negative — reject it. P&L at \(S=0\) is \(+2\), so this position profits at every possible price; report **no breakeven**.
 
 **Your agent must** build a 5+ row payoff table — piecewise between \(K_{pS}\), \(K_{pL}\), \(K_c\).
 
@@ -1015,7 +1032,7 @@ Net option flow per share: \(N = D_{pL} - C_c - C_{pS}\) (adjust signs if net cr
 |--------|---------------------|
 | **Max profit @ expiry** | \(K_c - B + C_{\text{tot}}\) when \(S \ge K_c\) |
 | **Max loss @ expiry** | \(B + K_p - C_{\text{tot}}\) at \(S = 0\) — the stock goes to zero and the short put is assigned, so below \(K_p\) losses accrue at twice the stock's rate |
-| **Breakeven** | One: \(B - C_{\text{tot}}\) when that is \(\ge K_p\); otherwise \((B + K_p - C_{\text{tot}})/2\). No upper breakeven — P&L is flat above \(K_c\) |
+| **Breakeven** | At most one: \(B - C_{\text{tot}}\) when \(K_p \le B - C_{\text{tot}} \le K_c\); otherwise \((B + K_p - C_{\text{tot}})/2\) when \(B - C_{\text{tot}} < K_p\) and that root is \(\ge 0\). If \(B - C_{\text{tot}} > K_c\), the position loses at every price: **no breakeven**. No upper breakeven — P&L is flat above \(K_c\) |
 
 **Expiry P&L / share:** \(\min(S, K_c) - B + C_{\text{tot}} - \max(K_p - S, 0)\)
 
@@ -1091,9 +1108,11 @@ Buy \(K_2\) put, sell \(K_1\) put, net debit \(D\)
 
 ### #14 — Diagonal spread
 
-**Inputs:** Long far leg (\(K_l\), \(D_l\)), short near leg (\(K_s\), \(C_s\)); net \(N = D_l - C_s\)
+**Inputs:** Long far leg (\(K_l\), \(D_l\)), short near leg (\(K_s\), \(C_s\)); net \(N = D_l - C_s\) (positive = net debit)
 
-Same as calendar: **multi-expiry** — run payoff table at **near expiry** with stated assumptions for the remaining long leg (mark at intrinsic or quote).
+Same as calendar: **multi-expiry** — run a payoff table at **near expiry** and say whether the remaining long leg is marked at intrinsic or at a quote.
+
+**Near-expiry loss bound** with the long marked at intrinsic. Calls: \(N\) when \(K_s \ge K_l\); \(N + (K_l - K_s)\) when the short strike is below the long strike. Puts: \(N\) when \(K_s \le K_l\); \(N + (K_s - K_l)\) when the short strike is above the long strike. Do **not** quote \(\approx N\) unless the short strike is at or beyond the long strike. A long 110 call at $5 and a short 100 call at $3 has \(N = 2\) but about **$12**/share of intrinsic loss at $110.
 
 ---
 
@@ -1102,7 +1121,7 @@ Same as calendar: **multi-expiry** — run payoff table at **near expiry** with 
 **Inputs:** Strike \(K\), total debit \(D = D_{\text{call}} + D_{\text{put}}\)
 
 | Max loss | \(D\) (at \(S = K\)) |
-| Max profit | Unlimited both tails |
+| Max profit | Unlimited upside; downside capped at \(K - D\) (price cannot fall below 0) |
 | **Breakeven up** | \(K + D\) |
 | **Breakeven down** | \(K - D\) |
 
@@ -1259,7 +1278,7 @@ Let net entry = \(D\) if debit, or treat credit as negative \(D\).
 | 11 | Bull put | \(W-C\) | \(K_2-C\) |
 | 12 | Bear put | \(D\) | \(K_2-D\) |
 | 13 | Calendar | \(\approx D\) | Table |
-| 14 | Diagonal | \(\approx N\) | Table |
+| 14 | Diagonal | \(N\), or \(N\) + strike gap if the short strike is inside the long | Table |
 | 15 | Long straddle | \(D\) | \(K \pm D\) |
 | 16 | Long strangle | \(D\) | \(K_p-D\), \(K_c+D\) |
 | 17 | Iron condor | \(W-C\) | \(K_{p2}-C\), \(K_{c1}+C\) |
@@ -1348,16 +1367,16 @@ Typical DTE is guidance only — you choose expirations. Max profit/loss summari
 | 4 | CSP | Bull–neutral | 30–45 | Credit | Premium | Strike − prem | 1 | No* | L1 | 1 |
 | 5 | Protective put | Bull + floor | 30–180 | Debit | Unlimited | Floored | 1 | Yes | L2 | 1 opt |
 | 6 | Collar | Protect + cap | 30–90 | Mixed | Capped @ call | Floored @ put | 1 | Yes | L3 | 2 opt |
-| 7 | Put spread collar | Cheaper protect | 30–90 | Mixed | Capped | Floored, then stock ↓ below short put | 1 | Yes | L3 | 3 opt |
+| 7 | Put spread collar | Cheaper protect | 30–90 | Mixed | Capped | Floored, then stock ↓ below short put | Table | Yes | L3 | 3 opt |
 | 8 | Covered strangle | Neutral income | 30–45 | Credit | Capped @ call | Stock + put ↓ | 1 | Yes | L3 | 2 opt |
 | 9 | Bull call spread | Mod bull | 30–60 | Debit | Width − debit | Debit | 1 | No | L3 | 2 |
 | 10 | Bear call spread | Bear–neutral | 30–45 | Credit | Credit | Width − credit | 1 | No | L3 | 2 |
 | 11 | Bull put spread | Bull–neutral | 30–45 | Credit | Credit | Width − credit | 1 | No | L3 | 2 |
 | 12 | Bear put spread | Bearish | 30–60 | Debit | Width − debit | Debit | 1 | No | L3 | 2 |
 | 13 | Long calendar | Neutral near | Near + far | Debit | Variable | ≈ debit | Table | No | L3 | 2 |
-| 14 | Diagonal | Mild bias | Near + far | Mixed | Variable | ≈ net debit | Table | No | L3 | 2 |
-| 15 | Long straddle | Vol ↑ | 7–45 | Debit | Unlimited tails | Total prem | 2 | No | L3 | 2 |
-| 16 | Long strangle | Vol ↑ cheap | 7–45 | Debit | Unlimited tails | Total prem | 2 | No | L3 | 2 |
+| 14 | Diagonal | Mild bias | Near + far | Mixed | Variable | \(N\), plus strike gap if inverted | Table | No | L3 | 2 |
+| 15 | Long straddle | Vol ↑ | 7–45 | Debit | Unlimited ↑; ↓ capped at \(K - D\) | Total prem | 2 | No | L3 | 2 |
+| 16 | Long strangle | Vol ↑ cheap | 7–45 | Debit | Unlimited ↑; ↓ capped at \(K_p - D\) | Total prem | 2 | No | L3 | 2 |
 | 17 | Iron condor | Range | 30–45 | Credit | Credit | Wing − credit | 2 | No | L3 | 4 |
 | 18 | Iron butterfly | Pin | 30–45 | Credit | Credit | Wing − credit | 2 | No | L3 | 4 |
 | 19 | Long call fly | Pin (calls) | 30–45 | Debit | Wing − debit | Debit | 2 | No | L3 | 3 |
@@ -1366,7 +1385,7 @@ Typical DTE is guidance only — you choose expirations. Max profit/loss summari
 | 22 | PMCC | Bull LEAP | LEAP + short | Mixed | Capped | LEAP cost | Table | No | L2+ | 2 |
 | 23 | Call backspread | Convex bull | 45–90 | Debit/cred | Unlimited ↑ | Zone loss | 1–2 | No | L3 | 2 |
 | 24 | Put backspread | Convex bear | 45–90 | Debit/cred | Large ↓ | Zone loss | 1–2 | No | L3 | 2 |
-| 25 | Stock repair | Repair basis | 60–180 | Mixed | Capped ↑ | Tail ↓ | Table | Yes | L3 | 3 opt |
+| 25 | Stock repair | Repair basis | 60–180 | Mixed | Capped ↑ | Tail ↓ | Table | Yes | L3 | 2 opt |
 
 \*CSP requires cash to secure assignment.
 
