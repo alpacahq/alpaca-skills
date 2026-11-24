@@ -813,4 +813,4 @@ Your agent must **NEVER**:
 |---|---|
 | `alpaca-trading-backtest` | Historical backtesting via Alpaca CLI — produces signals this skill can execute |
 | `alpaca-trading-paper-trading` | Generic implementation-agnostic paper-trading skill |
-| `alpaca-trading-paper-trading-mcp` | MCP-server version of this skill |
+| `alpaca-trading-paper-trading-mcp` | Trading API MCP version of this skill |
