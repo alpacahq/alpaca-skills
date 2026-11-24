@@ -1,19 +1,19 @@
 ---
 name: alpaca-trading-paper-trading-mcp
 description: >
-  Preview, submit, inspect, and manage Alpaca paper-trading orders using the
-  Alpaca Trading API MCP Server. Supports US equities, options, and crypto.
+  Preview, submit, inspect, and manage Alpaca paper-trading orders using
+  Trading API MCP. Supports US equities, options, and crypto.
   Use this skill when you want your AI agent to execute paper trades through
   MCP tool calls — no CLI installation or direct API coding required.
 ---
 
-# Alpaca Paper Trading — MCP Server Version
+# Alpaca Paper Trading — Trading API MCP Version
 
-Use this skill when you want your AI agent to preview, submit, inspect, and manage paper-trading orders using the Alpaca Trading API MCP Server.
+Use this skill when you want your AI agent to preview, submit, inspect, and manage paper-trading orders using Trading API MCP.
 
 This skill is written for you, a Trading API user working with your own Alpaca paper-trading account. Your agent calls MCP tools directly — no CLI installation or raw HTTP requests needed. The MCP server handles authentication and API communication.
 
-This is the MCP-server-specific version. A generic (implementation-agnostic) version and a CLI version are also available as companion skills.
+This is the Trading API MCP version. A generic (implementation-agnostic) version and a CLI version are also available as companion skills.
 
 ---
 
@@ -22,7 +22,7 @@ This is the MCP-server-specific version. A generic (implementation-agnostic) ver
 1. **Start with the signal source.** Whether it originates from a backtest result, a manual trading idea, a scheduled trigger, or a conversational request — identify what is driving the trade.
 2. **Reiterate strategy logic and confirm with you.** Your agent must restate the trading idea in its own words and wait for your confirmation before proceeding.
 3. **Gather and confirm ALL configurations.** Timing, asset class, symbol, side, quantity or notional amount, order type, time-in-force, limit/stop prices, extended-hours flag, risk controls (position limits, max order size, loss thresholds), and margin intent.
-4. **Discover available MCP tools.** Your agent must call `GetDynamicTools` to find the Alpaca MCP namespace and inspect available tool schemas before calling any tool. Tool names and parameters vary by MCP server implementation — never assume.
+4. **Discover available MCP tools.** Your agent must call `GetDynamicTools` to find the Trading API MCP namespace and inspect available tool schemas before calling any tool. Tool names and parameters vary by MCP server implementation — never assume.
 5. **Verify paper environment.** Read `env.ALPACA_PAPER_TRADE` from the host's MCP config file — no tool exposes it — and require it to be absent, `true`, `1`, or `yes`. Then confirm the account is active and unblocked. If paper mode cannot be proven, **STOP immediately** and tell you.
 6. **Show a complete order preview table.** Every parameter that will be sent to the order-placement tool must be visible to you before submission.
 7. **Ask whether you want explicit confirmation before each order** (default: ON). Respect your preference for the rest of the session.
@@ -36,7 +36,7 @@ This is the MCP-server-specific version. A generic (implementation-agnostic) ver
 
 ### Required
 
-- **Alpaca Trading API MCP Server** installed and configured in your agent host (Cursor, etc.)
+- **Trading API MCP** installed and configured in your agent host (Cursor, etc.)
 - **Paper trading API key and secret** configured as environment variables in the MCP server configuration — **never** pasted into chat or passed as tool arguments
 - MCP server namespace discoverable via `GetDynamicTools`
 - Paper trading account active at Alpaca
@@ -48,7 +48,7 @@ This is the MCP-server-specific version. A generic (implementation-agnostic) ver
 
 ### MCP Server Setup (Cursor)
 
-The server is Alpaca's official MCP server, maintained at [alpacahq/alpaca-mcp-server](https://github.com/alpacahq/alpaca-mcp-server). That repository's README is the source of truth for the package name, command, and environment variables. The configuration below reflects v2.
+The server is Trading API MCP, Alpaca's official MCP server, maintained at [alpacahq/alpaca-mcp-server](https://github.com/alpacahq/alpaca-mcp-server). That repository's README is the source of truth for the package name, command, and environment variables. The configuration below reflects v2.
 
 Add it to `~/.cursor/mcp.json`:
 
@@ -147,7 +147,7 @@ Before proceeding to order preview, your agent must confirm:
 
 | Source | URL | Used for |
 |---|---|---|
-| Alpaca MCP Server | https://github.com/alpacahq/alpaca-mcp-server | Server setup, environment variables, toolsets, current tool list |
+| Trading API MCP | https://github.com/alpacahq/alpaca-mcp-server | Server setup, environment variables, toolsets, current tool list |
 | Alpaca Trading API docs | https://docs.alpaca.markets/us/docs/trading-api | Order parameters, account fields, asset details |
 | Create Order reference | https://docs.alpaca.markets/us/reference/postorder | Underlying REST semantics only — **not** the tool parameter shape. The `place_*` tools flatten and constrain this schema, so always build parameters from the discovered tool schema |
 | Order types guide | https://docs.alpaca.markets/us/docs/orders-at-alpaca | Order type behavior, TIF rules, extended hours |
@@ -204,7 +204,7 @@ Do not proceed until you confirm. If you correct any detail, your agent re-confi
 
 ### Phase 3: MCP Discovery and Paper Account Verification
 
-**Step 10** — Discover the Alpaca MCP namespace.
+**Step 10** — Discover the Trading API MCP namespace.
 
 ```
 Call GetDynamicTools with pattern "alpaca" to find the namespace.

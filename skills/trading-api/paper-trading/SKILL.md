@@ -774,7 +774,7 @@ When crypto is involved, your agent includes:
 | Skill | Description |
 |---|---|
 | `alpaca-trading-paper-trading-cli` | CLI-specific version using the Alpaca CLI |
-| `alpaca-trading-paper-trading-mcp` | MCP-specific version using Alpaca MCP server tools |
+| `alpaca-trading-paper-trading-mcp` | MCP-specific version using Trading API MCP tools |
 
 ### Related skills
 
