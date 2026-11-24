@@ -11,7 +11,7 @@ Place, modify, cancel, and track orders for an end-user account, and read positi
 
 ## Reference
 - Guides: `https://docs.alpaca.markets/us/docs/orders-at-alpaca`, `https://docs.alpaca.markets/us/docs/fractional-trading`
-- API ref: `https://docs.alpaca.markets/us/reference/postorder`
+- API ref: `https://docs.alpaca.markets/us/reference/createorderforaccount`
 - Live schema: `alpaca-docs` MCP → `get-endpoint` title `"Broker API"` path `/v1/trading/accounts/{account_id}/orders`
 
 ## 1. Endpoints

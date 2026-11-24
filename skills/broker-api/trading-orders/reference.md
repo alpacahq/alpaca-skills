@@ -5,7 +5,7 @@ Companion to `SKILL.md`. Read the workflow and guardrails there first.
 ## Primary docs and schemas
 
 - Guides: `https://docs.alpaca.markets/us/docs/orders-at-alpaca`, `https://docs.alpaca.markets/us/docs/fractional-trading`
-- API ref: `https://docs.alpaca.markets/us/reference/postorder`
+- API ref: `https://docs.alpaca.markets/us/reference/createorderforaccount`
 - Live schema: `alpaca-docs` MCP → `get-endpoint` title `"Broker API"` path `/v1/trading/accounts/{account_id}/orders`
 
 ## Live schema workflow
