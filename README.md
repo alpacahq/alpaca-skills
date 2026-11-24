@@ -76,8 +76,8 @@ Product namespacing uses the folder path (`skills/trading-api/`, `skills/broker-
 ## Related resources
 
 - [Alpaca CLI](https://github.com/alpacahq/cli)
-- [Trading API documentation](https://docs.alpaca.markets/)
-- [Broker API documentation](https://docs.alpaca.markets/docs/getting-started-with-broker-api)
+- [Trading API documentation](https://docs.alpaca.markets/us/docs/trading-api)
+- [Broker API documentation](https://docs.alpaca.markets/us/docs/getting-started-with-broker-api)
 - [Alpaca disclosures](https://alpaca.markets/disclosures)
 - [Security policy](SECURITY.md)
 

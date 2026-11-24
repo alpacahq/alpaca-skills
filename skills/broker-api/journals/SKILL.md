@@ -10,8 +10,8 @@ Journals move value **between two accounts within your own Alpaca omnibus** — 
 > Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works).
 
 ## Reference
-- Guide: `https://docs.alpaca.markets/docs/funding-via-journals`
-- API ref: `https://docs.alpaca.markets/reference/createjournal`
+- Guide: `https://docs.alpaca.markets/us/docs/funding-via-journals`
+- API ref: `https://docs.alpaca.markets/us/reference/createjournal`
 - Live schema: `alpaca-docs` MCP → `get-endpoint` title `"Broker API"` path `/v1/journals`
 
 ## 1. Endpoints

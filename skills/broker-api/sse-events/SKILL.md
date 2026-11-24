@@ -10,7 +10,7 @@ Alpaca pushes brokerage lifecycle events over **Server-Sent Events**: a long-liv
 > Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works).
 
 ## Reference
-- Guide: `https://docs.alpaca.markets/docs/sse-events`
+- Guide: `https://docs.alpaca.markets/us/docs/sse-events`
 - Live: `alpaca-docs` MCP → `search` "SSE Events", then `fetch us/sse-events`
 
 ## 1. Why SSE (and why it's simpler than it looks)

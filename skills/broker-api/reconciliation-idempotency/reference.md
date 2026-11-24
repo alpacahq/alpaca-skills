@@ -4,14 +4,14 @@ Companion to `SKILL.md`. Read the workflow and guardrails there first.
 
 ## Primary docs and schemas
 
-- Docs home: `https://docs.alpaca.markets/`
+- Docs home: `https://docs.alpaca.markets/us/`
 - Confirm domain-specific status enums in live endpoint schemas before implementing state machines.
 
 ## Live schema workflow
 
 Prefer live Alpaca documentation before generating code that opens accounts, moves money, places orders, or mutates production state:
 
-1. Check `https://docs.alpaca.markets/llms.txt` or `https://docs.alpaca.markets/llms-full.txt` for the current documentation index.
+1. Check `https://docs.alpaca.markets/us/llms.txt` for the current documentation index.
 2. If an `alpaca-docs` MCP server is connected, use it for exact endpoint schemas instead of guessing from examples.
 3. Verify required fields, enum values, pagination, and status transitions against the current Broker API, Trading API, or Market Data API spec.
 

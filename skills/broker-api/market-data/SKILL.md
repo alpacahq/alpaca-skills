@@ -10,7 +10,7 @@ Real-time and historical US equity data. Unlike the Broker endpoints, market dat
 > Read `alpaca-broker-integration` first. Assets/clock/calendar live on the **Trading API** host; everything else here is the **Market Data API** host.
 
 ## Reference
-- Guides: `https://docs.alpaca.markets/docs/historical-stock-data`, `https://docs.alpaca.markets/docs/streaming-market-data`
+- Guides: `https://docs.alpaca.markets/us/docs/historical-stock-data-1`, `https://docs.alpaca.markets/us/docs/streaming-market-data`
 - Live schema: `alpaca-docs` MCP → `list-endpoints` title `"Market Data API"`
 
 ## 0. Hosts & auth

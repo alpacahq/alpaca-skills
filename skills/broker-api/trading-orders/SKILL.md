@@ -10,8 +10,8 @@ Place, modify, cancel, and track orders for an end-user account, and read positi
 > Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works). (The standalone Trading API uses `/v2/orders` with no account in the path; everything else here transfers.)
 
 ## Reference
-- Guides: `https://docs.alpaca.markets/docs/orders-at-alpaca`, `https://docs.alpaca.markets/docs/fractional-trading`
-- API ref: `https://docs.alpaca.markets/reference/postorder`
+- Guides: `https://docs.alpaca.markets/us/docs/orders-at-alpaca`, `https://docs.alpaca.markets/us/docs/fractional-trading`
+- API ref: `https://docs.alpaca.markets/us/reference/createorderforaccount`
 - Live schema: `alpaca-docs` MCP → `get-endpoint` title `"Broker API"` path `/v1/trading/accounts/{account_id}/orders`
 
 ## 1. Endpoints
@@ -100,7 +100,7 @@ An order usually reaches `new` directly; `accepted`/`pending_new` are rare inter
 ## 6. Documented gotchas
 
 - **Minimum order value:** every buy order needs a market value of at least **$1** or it's rejected with `422`; sells are exempt.
-- **Per-asset-class rules:** options and crypto go through this same endpoint, gated by `asset_class` — crypto rejects `time_in_force: day` (only `gtc`/`ioc`) and allows only `market`/`limit`/`stop_limit`; options allow `day`/`gtc` only. Check the type/TIF matrix in the `OrderType`/`TimeInForce` descriptions at `https://docs.alpaca.markets/reference/createorderforaccount` rather than assuming the equity set.
+- **Per-asset-class rules:** options and crypto go through this same endpoint, gated by `asset_class` — crypto rejects `time_in_force: day` (only `gtc`/`ioc`) and allows only `market`/`limit`/`stop_limit`; options allow `day`/`gtc` only. Check the type/TIF matrix in the `OrderType`/`TimeInForce` descriptions at `https://docs.alpaca.markets/us/reference/createorderforaccount` rather than assuming the equity set.
 - **Wash-trade rejection (403):** if a user's two orders could self-cross (opposite sides, crossable prices), Alpaca rejects. Opposing market/stop pairs are always rejected; opposing limits rejected when buy-limit ≥ sell-limit. **Use `bracket`/`oco`/`trailing_stop` for simultaneous take-profit + stop-loss** — they're exempt.
 - **Bracket constraints:** requires both `take_profit.limit_price` and `stop_loss.stop_price`; TP must be above SL for a buy; no extended hours; TIF `day`/`gtc`; child legs activate only after the entry fully fills; canceling one cancels the group.
 - **Notional orders can't be replaced** — cancel and resubmit (IPO-class notional is the exception). Fractional `qty` can't be changed on replace ("full shares only").
