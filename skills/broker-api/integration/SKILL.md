@@ -15,9 +15,9 @@ This is the **router / overview** skill. It covers the things that are true acro
 
 ## Reference Documentation
 
-- Docs home: `https://docs.alpaca.markets/`
-- API reference: `https://docs.alpaca.markets/reference/`
-- Machine-readable index: `https://docs.alpaca.markets/us/llms.txt` (the root `llms.txt` is the India/GIFT City index; `llms-full.txt` redirects to the docs home)
+- Docs home: `https://docs.alpaca.markets/us/`
+- API reference: `https://docs.alpaca.markets/us/reference`
+- Machine-readable index: `https://docs.alpaca.markets/us/llms.txt` (regional Booking Center indexes also exist at `/eu/llms.txt`, `/uk/llms.txt`, and `/in-giftcity/llms.txt`; `llms-full.txt` is not published)
 - OpenAPI specs (4): **Authentication API**, **Broker API**, **Market Data API**, **Trading API**
 
 **Live schema lookups:** if the `alpaca-docs` MCP server is connected, prefer it over guessing — `list-specs`, `list-endpoints`, `get-endpoint` (exact request/response schemas + servers), and `search` / `fetch` (guide pages). Always confirm an exact payload against the spec before generating code that posts money or orders.

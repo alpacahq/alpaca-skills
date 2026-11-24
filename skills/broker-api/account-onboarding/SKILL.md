@@ -10,8 +10,8 @@ Create and manage end-user brokerage accounts under your firm. This is the **fir
 > Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works).
 
 ## Reference
-- Guide: `https://docs.alpaca.markets/docs/getting-started-with-broker-api`, `https://docs.alpaca.markets/docs/accounts`
-- API ref: `https://docs.alpaca.markets/reference/createaccount`
+- Guide: `https://docs.alpaca.markets/us/docs/getting-started-with-broker-api`, `https://docs.alpaca.markets/us/docs/account-opening`
+- API ref: `https://docs.alpaca.markets/us/reference/createaccount`
 - Live schema: `alpaca-docs` MCP → `get-endpoint` title `"Broker API"` path `/v1/accounts`
 
 ## 1. Endpoints
@@ -120,7 +120,7 @@ Each entry: `agreement` (`customer_agreement`, `account_agreement`, `margin_agre
 ## 6. KYC results & CIP
 
 - `kyc_results` on the account object carries `reject`/`accept`/`indeterminate` sets plus `additional_information`. `summary` is `pass`/`fail` (internal only).
-- **`KYCResultType` is an extensible string set, not a closed enum.** Examples only: `IDENTITY_VERIFICATION`, `WATCHLIST_HIT`, `W8BEN_CORRECTION`. Generated code must tolerate and preserve unrecognized values rather than parsing into a fixed enum. The documented identifiers live under `KYCResults` at `https://docs.alpaca.markets/reference/getaccount`.
+- **`KYCResultType` is an extensible string set, not a closed enum.** Examples only: `IDENTITY_VERIFICATION`, `WATCHLIST_HIT`, `W8BEN_CORRECTION`. Generated code must tolerate and preserve unrecognized values rather than parsing into a fixed enum. The documented identifiers live under `KYCResults` at `https://docs.alpaca.markets/us/reference/getaccount`.
 - If you run KYC yourself (or via Onfido/Trulioo/Veriff/etc.), submit results via `POST /v1/accounts/{id}/cip` with a `CIPInfo` body (provider_name, kyc, document, photo, identity, watchlist sub-results). Sub-check results are `clear`/`consider`.
 - Minimum to open an individual account: verify **name, date of birth, address, and identification number**.
 - `WATCHLIST_HIT` needs no action from the account owner unless Alpaca separately requests it.

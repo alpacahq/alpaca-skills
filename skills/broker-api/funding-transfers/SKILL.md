@@ -10,8 +10,8 @@ Getting cash into and out of end-user accounts. There are **three external rails
 > Read `alpaca-broker-integration` first for base URLs and auth (client-credentials Bearer token; legacy Basic still works). For moving cash *between* accounts in your omnibus (vs. to/from the outside world), see `alpaca-broker-journals` — that's a different mechanism.
 
 ## Reference
-- Guide: `https://docs.alpaca.markets/docs/funding-accounts`
-- API ref: `https://docs.alpaca.markets/reference/createtransferforaccount`
+- Guide: `https://docs.alpaca.markets/us/docs/funding-accounts`
+- API ref: `https://docs.alpaca.markets/us/reference/createtransferforaccount`
 - Live schema: `alpaca-docs` MCP → `get-endpoint` title `"Broker API"` path `/v1/accounts/{account_id}/transfers`
 
 ## 1. The funding model
